@@ -576,16 +576,36 @@ async function renderClientPage(clientId){
   const projs=S.projects.filter(p=>p.client_id===clientId).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   let cards='';
   for(const p of projs){
-    const st=await projectStats(p.id); const pct=st.total?Math.round(st.done/st.total*100):0;
-    cards+=`<div class="ccard" onclick="renderProject('${p.id}')">
-      <div class="swatch" style="background:${c.color}"></div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <span class="chip chip-ink">${esc(p.kind)}</span>
-        ${p.published?'<span class="sb approved">● Publicado</span>':'<span class="sb pending">○ Rascunho</span>'}</div>
-      <h3 style="margin-top:12px">${esc(p.title)}</h3>
-      <div class="meta">${esc(p.period||'')} · ${st.total/2|0} itens</div>
-      <div class="minibar"><i style="width:${pct}%;background:${c.color}"></i></div>
-      <div class="foot"><span class="chip chip-ink">${pct}% aprovado</span></div></div>`;
+    const isM=p.mode==='mensal';
+    let label,pct;
+    if(isM){
+      const cnt=S.projects.length; // placeholder
+      const { count } = await sb.from('items').select('id',{count:'exact',head:true}).eq('project_id',p.id);
+      label = p.month_status==='approved'?'<span class="sb approved">✓ Aprovado</span>'
+            : p.month_status==='rejected'?'<span class="sb rejected">✕ Revisão</span>'
+            : '<span class="sb pending">○ Pendente</span>';
+      pct = p.month_status==='approved'?100:0;
+      cards+=`<div class="ccard" onclick="renderProject('${p.id}')">
+        <div class="swatch" style="background:${c.color}"></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <span class="chip chip-accent">🗓️ Mensal</span>
+          ${p.published?'<span class="sb approved">● Publicado</span>':'<span class="sb pending">○ Rascunho</span>'}</div>
+        <h3 style="margin-top:12px">${esc(p.title)}</h3>
+        <div class="meta">${esc(p.period||'')} · ${count||0} linhas</div>
+        <div class="minibar"><i style="width:${pct}%;background:${c.color}"></i></div>
+        <div class="foot">${label}</div></div>`;
+    } else {
+      const st=await projectStats(p.id); pct=st.total?Math.round(st.done/st.total*100):0;
+      cards+=`<div class="ccard" onclick="renderProject('${p.id}')">
+        <div class="swatch" style="background:${c.color}"></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <span class="chip chip-ink">📸 Semanal</span>
+          ${p.published?'<span class="sb approved">● Publicado</span>':'<span class="sb pending">○ Rascunho</span>'}</div>
+        <h3 style="margin-top:12px">${esc(p.title)}</h3>
+        <div class="meta">${esc(p.period||'')} · ${st.total/2|0} posts</div>
+        <div class="minibar"><i style="width:${pct}%;background:${c.color}"></i></div>
+        <div class="foot"><span class="chip chip-ink">${pct}% aprovado</span></div></div>`;
+    }
   }
   const body=`
     <div class="page-head"><div>
@@ -630,20 +650,36 @@ function shareWa(name,link){
 /* ---------- editar cronograma (dados) ---------- */
 function editProject(id,clientId){
   const p=id?S.projects.find(x=>x.id===id):null;
+  const mode=p?(p.mode||'semanal'):'semanal';
+  const lockMode = !!id; // não troca o modo de um cronograma já criado (evita misturar itens)
   openModal(`
     <div class="modal-head"><h3>${p?'Editar':'Novo'} cronograma</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
-      <div class="field"><label>Título</label><input id="pTitle" value="${p?esc(p.title):''}" placeholder="Ex.: Conteúdo Redes Sociais"></div>
+      ${lockMode?'':`<div class="field"><label>Tipo de aprovação</label>
+        <div style="display:flex;gap:10px">
+          <button type="button" class="modepick" data-m="mensal" onclick="pickMode('mensal')" style="flex:1;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
+            <div style="font-weight:700;font-size:14px">🗓️ Cronograma mensal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Planejamento: semana, formato, qtd e tema. Sem copy/criativo.</div></button>
+          <button type="button" class="modepick" data-m="semanal" onclick="pickMode('semanal')" style="flex:1;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
+            <div style="font-weight:700;font-size:14px">📸 Pauta semanal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Posts prontos com copy e criativo, aprovados um a um.</div></button>
+        </div><input type="hidden" id="pMode" value="${mode}"></div>`}
+      ${lockMode?`<input type="hidden" id="pMode" value="${mode}"><div class="chip ${mode==='mensal'?'chip-accent':'chip-ink'}" style="margin-bottom:14px">${mode==='mensal'?'🗓️ Cronograma mensal':'📸 Pauta semanal'}</div>`:''}
+      <div class="field"><label>Título</label><input id="pTitle" value="${p?esc(p.title):''}" placeholder="${mode==='mensal'?'Ex.: Planejamento de Junho':'Ex.: Pauta Semana 1'}"></div>
       <div class="row2">
-        <div class="field"><label>Tipo</label><select id="pKind">${KINDS.map(k=>`<option ${p&&p.kind===k?'selected':''}>${k}</option>`).join('')}</select></div>
-        <div class="field"><label>Período</label><input id="pPeriod" value="${p?esc(p.period||''):''}" placeholder="Ex.: Maio 2026"></div>
+        <div class="field"><label>Tipo</label><select id="pKind">${KINDS.map(k=>`<option ${p&&p.kind===k?'selected':(!p&&((mode==='mensal'&&k==='Mensal')||(mode==='semanal'&&k==='Semanal')))?'selected':''}>${k}</option>`).join('')}</select></div>
+        <div class="field"><label>Período</label><input id="pPeriod" value="${p?esc(p.period||''):''}" placeholder="${mode==='mensal'?'Ex.: Junho 2026':'Ex.: 01 a 07/06'}"></div>
       </div></div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-accent" onclick="saveProject(${p?`'${p.id}'`:'null'},${clientId?`'${clientId}'`:'null'})">${p?'Salvar':'Criar e montar'}</button></div>`);
+  if(!lockMode) pickMode(mode);
+}
+function pickMode(m){
+  const inp=$('pMode'); if(inp) inp.value=m;
+  document.querySelectorAll('.modepick').forEach(b=>{ const on=b.dataset.m===m; b.style.borderColor=on?'var(--accent)':'var(--line)'; b.style.background=on?'var(--accent-tint)':'#fff'; });
 }
 async function saveProject(id,clientId){
   const title=$('pTitle').value.trim(); if(!title) return toast('Informe o título');
-  const rec={ title, kind:$('pKind').value, period:$('pPeriod').value.trim() };
+  const mode=$('pMode')?$('pMode').value:'semanal';
+  const rec={ title, kind:$('pKind').value, period:$('pPeriod').value.trim(), mode };
   if(id){ const {error}=await sb.from('projects').update(rec).eq('id',id); if(error)return toast('Erro ao salvar'); closeModal(); renderProject(id); }
   else{ rec.client_id=clientId; rec.published=false;
     const {data,error}=await sb.from('projects').insert(rec).select().single();
@@ -660,12 +696,34 @@ async function renderProject(projectId){
   await loadAll();
   const p=S.projects.find(x=>x.id===projectId); if(!p) return renderClients();
   const c=S.clients.find(x=>x.id===p.client_id);
+  const isMonthly=(p.mode==='mensal');
   const { data:items } = await sb.from('items').select('*').eq('project_id',projectId).order('sort');
+  S._items=items||[];
+  const link=clientLinkFor(c);
+
+  const head=`
+    <div class="page-head"><div>
+      <div class="crumb"><a onclick="nav('clients')">Clientes</a> / <a onclick="renderClientPage('${c.id}')">${esc(c.name)}</a> / <b>${esc(p.title)}</b></div>
+      <h2>${esc(p.title)}</h2>
+      <p><span class="chip ${isMonthly?'chip-accent':'chip-ink'}">${isMonthly?'🗓️ Mensal':'📸 Semanal'}</span> <span class="chip chip-ink">${esc(p.kind)}</span> ${esc(p.period||'')} · ${(items||[]).length} ${isMonthly?'linhas':'itens'}</p></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="editProject('${p.id}')">Editar dados</button>
+        <button class="btn btn-ghost" onclick="renderTracking('${p.id}')">📊 Respostas</button>
+        ${p.published?`<button class="btn btn-primary" onclick="togglePublish('${p.id}',true)">✓ Publicado</button>`
+          :`<button class="btn btn-accent" onclick="togglePublish('${p.id}',false)">🚀 Publicar</button>`}</div></div>
+    ${p.published?`<div class="tcard" style="padding:14px 17px;margin-bottom:8px;display:flex;align-items:center;gap:13px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:13px">🔗 Link do cliente:</span>
+        <div class="link-box" style="flex:1;min-width:240px"><code>${esc(link)}</code></div>
+        <button class="btn btn-ghost btn-sm" onclick="copyText('${esc(link)}','Link copiado!')">Copiar</button>
+        <button class="btn btn-ghost btn-sm" onclick="shareWa('${esc(c.name)}','${esc(link)}')">WhatsApp</button></div>`:''}`;
+
+  if(isMonthly){ return shell(head + monthlyEditorBody(p,items||[])); }
+
+  // ----- SEMANAL (posts com copy/criativo) -----
   const ids=(items||[]).map(i=>i.id);
   let decs=[]; if(ids.length){ const r=await sb.from('decisions').select('*').in('item_id',ids); decs=r.data||[]; }
   const decMap={}; decs.forEach(d=>decMap[d.item_id+'-'+d.kind]=d);
-  S._items=items||[]; S._decMap=decMap;
-
+  S._decMap=decMap;
   const cell=(need,d)=> !need?'<span class="chip chip-ink">—</span>'
     : d&&d.status==='approved'?'<span class="sb approved">✓</span>'
     : d&&d.status==='rejected'?'<span class="sb rejected">✕</span>':'<span class="sb pending">○</span>';
@@ -677,29 +735,39 @@ async function renderProject(projectId){
       <td>${cell(it.has_creative,decMap[it.id+'-creative'])}</td></tr>`).join('')
     : `<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:28px">Nenhum item ainda.</td></tr>`;
   const itemsEd=(items||[]).map((it,i)=>itemEditorHTML(it,i)).join('');
-  const link=clientLinkFor(c);
-
-  const body=`
-    <div class="page-head"><div>
-      <div class="crumb"><a onclick="nav('clients')">Clientes</a> / <a onclick="renderClientPage('${c.id}')">${esc(c.name)}</a> / <b>${esc(p.title)}</b></div>
-      <h2>${esc(p.title)}</h2>
-      <p><span class="chip chip-ink">${esc(p.kind)}</span> ${esc(p.period||'')} · ${(items||[]).length} itens</p></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn btn-ghost" onclick="editProject('${p.id}')">Editar dados</button>
-        <button class="btn btn-ghost" onclick="renderTracking('${p.id}')">📊 Respostas</button>
-        ${p.published?`<button class="btn btn-primary" onclick="togglePublish('${p.id}',true)">✓ Publicado</button>`
-          :`<button class="btn btn-accent" onclick="togglePublish('${p.id}',false)">🚀 Publicar</button>`}</div></div>
-    ${p.published?`<div class="tcard" style="padding:14px 17px;margin-bottom:8px;display:flex;align-items:center;gap:13px;flex-wrap:wrap">
-        <span style="font-weight:700;font-size:13px">🔗 Link do cliente:</span>
-        <div class="link-box" style="flex:1;min-width:240px"><code>${esc(link)}</code></div>
-        <button class="btn btn-ghost btn-sm" onclick="copyText('${esc(link)}','Link copiado!')">Copiar</button>
-        <button class="btn btn-ghost btn-sm" onclick="shareWa('${esc(c.name)}','${esc(link)}')">WhatsApp</button></div>`:''}
+  const body=head+`
     <div class="secbar"><div class="ico">📅</div><h3>Cronograma</h3></div>
     <div class="tcard"><table><thead><tr><th>#</th><th>Pauta</th><th>Plataforma / Formato</th><th>Copy</th><th>Criativo</th></tr></thead><tbody>${scheduleRows}</tbody></table></div>
-    <div class="secbar"><div class="ico">✏️</div><h3>Itens / Pautas</h3><div class="spacer"></div><button class="btn btn-ghost btn-sm" onclick="addItem('${p.id}')">＋ Adicionar item</button></div>
-    <div id="itemsList">${itemsEd||`<div class="empty"><div class="em">📝</div><h3>Sem itens</h3><p>Adicione a primeira pauta/post.</p><br><button class="btn btn-accent" onclick="addItem('${p.id}')">＋ Adicionar item</button></div>`}</div>
-    ${(items||[]).length?`<div style="text-align:center;margin-top:18px"><button class="btn btn-ghost" onclick="addItem('${p.id}')">＋ Adicionar mais um item</button></div>`:''}`;
+    <div class="secbar"><div class="ico">✏️</div><h3>Posts da semana</h3><div class="spacer"></div><button class="btn btn-ghost btn-sm" onclick="addItem('${p.id}')">＋ Adicionar post</button></div>
+    <div id="itemsList">${itemsEd||`<div class="empty"><div class="em">📝</div><h3>Sem posts</h3><p>Adicione o primeiro post da semana.</p><br><button class="btn btn-accent" onclick="addItem('${p.id}')">＋ Adicionar post</button></div>`}</div>
+    ${(items||[]).length?`<div style="text-align:center;margin-top:18px"><button class="btn btn-ghost" onclick="addItem('${p.id}')">＋ Adicionar mais um post</button></div>`:''}`;
   shell(body);
+}
+
+/* ---------- editor MENSAL (planejamento) ---------- */
+const FORMATS=['Estático','Carrossel','Reels','Story'];
+function monthlyEditorBody(p,items){
+  const rows=items.map((it,i)=>`<tr>
+      <td><span class="pnum">${i+1}</span></td>
+      <td style="min-width:120px"><input value="${esc(it.week||'')}" onchange="upd('${it.id}','week',this.value)" placeholder="Semana 1" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px"></td>
+      <td style="min-width:130px"><select onchange="upd('${it.id}','format',this.value)" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px">${['',...FORMATS].map(f=>`<option ${it.format===f?'selected':''} value="${f}">${f||'—'}</option>`).join('')}</select></td>
+      <td style="width:80px"><input type="number" min="0" value="${it.qty!=null?it.qty:''}" onchange="upd('${it.id}','qty',this.value?parseInt(this.value):null)" placeholder="0" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px"></td>
+      <td><input value="${esc(it.title||'')}" onchange="upd('${it.id}','title',this.value)" placeholder="Tema do conteúdo" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px"></td>
+      <td style="width:40px;text-align:center"><button class="icon-btn" style="color:var(--red);width:28px;height:28px" title="Excluir" onclick="delItem('${it.id}')">🗑</button></td></tr>`).join('');
+  return `
+    <div class="secbar"><div class="ico">🗓️</div><h3>Planejamento do mês</h3><div class="spacer"></div><button class="btn btn-ghost btn-sm" onclick="addMonthRow('${p.id}')">＋ Adicionar linha</button></div>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 14px">Defina, por semana: formato, quantos posts e o tema. O cliente aprova o mês inteiro e pode comentar em cada tema.</p>
+    <div class="tcard"><table><thead><tr><th>#</th><th>Semana</th><th>Formato</th><th>Qtd</th><th>Tema do conteúdo</th><th></th></tr></thead>
+      <tbody>${rows||`<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:28px">Nenhuma linha ainda.</td></tr>`}</tbody></table></div>
+    <div style="text-align:center;margin-top:16px"><button class="btn btn-ghost" onclick="addMonthRow('${p.id}')">＋ Adicionar linha</button></div>`;
+}
+async function addMonthRow(pid){
+  const sort=(S._items.length?Math.max(...S._items.map(i=>i.sort||0))+1:0);
+  const last=S._items[S._items.length-1];
+  const rec={ project_id:pid, title:'', week:(last&&last.week)||'Semana 1', format:'Estático', qty:1, has_copy:false, has_creative:false, sort };
+  const { error }=await sb.from('items').insert(rec);
+  if(error){ console.error(error); return toast('Erro ao adicionar'); }
+  renderProject(pid);
 }
 
 function itemEditorHTML(it,i){
@@ -829,6 +897,29 @@ async function drawTracking(projectId){
   const p=S.projects.find(x=>x.id===projectId); if(!p){ if(S.pollTimer)clearInterval(S.pollTimer); return; }
   const c=S.clients.find(x=>x.id===p.client_id);
   const { data:items } = await sb.from('items').select('*').eq('project_id',projectId).order('sort');
+
+  if(p.mode==='mensal'){
+    const stt=p.month_status;
+    const badge=stt==='approved'?'<span class="sb approved">✓ Mês aprovado</span>':stt==='rejected'?'<span class="sb rejected">✕ Revisão solicitada</span>':'<span class="sb pending">○ Aguardando aprovação</span>';
+    const withNotes=(items||[]).filter(it=>it.note&&it.note.trim());
+    const rows=(items||[]).map((it,i)=>`<div class="track-row"><div class="track-num">${i+1}</div><div class="track-info">
+        <div class="tt">${esc(it.week||'')} · ${esc(it.format||'')} · ${it.qty!=null?it.qty+' post(s)':''}</div>
+        <div class="track-line">${esc(it.title||'(tema)')}</div>
+        ${it.note&&it.note.trim()?`<div class="track-note">↳ obs do cliente: "${esc(it.note)}"</div>`:''}</div></div>`).join('');
+    const body=`
+      <div class="page-head"><div>
+        <div class="crumb"><a onclick="renderClientPage('${c.id}')">${esc(c.name)}</a> / <a onclick="renderProject('${p.id}')">${esc(p.title)}</a> / <b>Respostas</b></div>
+        <h2>Acompanhamento · Mensal</h2><p>Atualiza sozinho a cada 6s${p.month_sender?` · respondido por <b>${esc(p.month_sender)}</b>`:''}</p></div>
+        <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="if(S.pollTimer)clearInterval(S.pollTimer);renderProject('${p.id}')">← Editor</button>
+        <button class="btn btn-ghost" onclick="window.print()">🖨️ PDF</button></div></div>
+      <div class="tcard" style="padding:18px 21px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div style="font-size:15px;font-weight:700">Status do mês:</div> ${badge}
+        ${p.month_ts?`<span style="font-size:12.5px;color:var(--ink-faint)">${esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</span>`:''}
+        <div style="flex:1"></div><div style="font-size:13px;color:var(--ink-soft)">${withNotes.length} tema(s) com observação</div></div>
+      <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem linhas.</p></div>'}</div>`;
+    return shell(body);
+  }
+
   const ids=(items||[]).map(i=>i.id);
   let decs=[]; if(ids.length){ const r=await sb.from('decisions').select('*').in('item_id',ids); decs=r.data||[]; }
   const dm={}; let sender=''; decs.forEach(d=>{ dm[d.item_id+'-'+d.kind]=d; if(d.sender)sender=d.sender; });
@@ -948,12 +1039,15 @@ async function renderClientView(){
   const dm={}; let sender=''; decs.forEach(d=>{ dm[d.item_id+'-'+d.kind]=d; if(d.sender)sender=d.sender; });
   S.cItems=items||[]; S.cDecisions=dm; S.cSender=sender;
 
-  const picker=S.cProjects.length>1?`<div class="proj-pick">${S.cProjects.map(pr=>`<button class="proj-tab ${pr.id===S.cActiveProj?'active':''}" style="${pr.id===S.cActiveProj?`background:${c.color}`:''}" onclick="switchProj('${pr.id}')">${esc(pr.title)}${pr.published?'':' (rascunho)'}</button>`).join('')}</div>`:'';
+  const picker=S.cProjects.length>1?`<div class="proj-pick">${S.cProjects.filter(pr=>pr.published).map(pr=>`<button class="proj-tab ${pr.id===S.cActiveProj?'active':''}" style="${pr.id===S.cActiveProj?`background:${c.color}`:''}" onclick="switchProj('${pr.id}')">${pr.mode==='mensal'?'🗓️ ':'📸 '}${esc(pr.title)}</button>`).join('')}</div>`:'';
 
   if(!p.published){
     document.querySelector('.c-wrap').innerHTML=picker+`<div class="empty"><div class="em">⏳</div><h3>Em preparação</h3><p>Este cronograma ainda está sendo finalizado pela agência.</p></div>`;
     return;
   }
+
+  if(p.mode==='mensal'){ return renderClientMonthly(c,p,items||[],picker); }
+
   const cards=(items||[]).map((it,i)=>clientCardHTML(it,i,dm,c)).join('');
   document.querySelector('.c-wrap').innerHTML=`
     ${picker}
@@ -975,6 +1069,72 @@ async function renderClientView(){
   drawClientSchedule(); updateClientProgress();
 }
 function switchProj(id){ S.cActiveProj=id; renderClientView(); }
+
+/* ---------- tela do cliente: MENSAL (planejamento) ---------- */
+function renderClientMonthly(c,p,items,picker){
+  const accent=c.color;
+  // esconde barra de progresso de itens (não se aplica)
+  const sub=document.querySelector('.c-sub'); if(sub) sub.style.display='none';
+  const st=p.month_status;
+  const rows=items.map((it,i)=>`<tr>
+      <td><span class="pnum" style="background:${accent}">${i+1}</span></td>
+      <td style="font-weight:600">${esc(it.week||'')}</td>
+      <td>${it.format?`<span class="chip chip-ink">${esc(it.format)}</span>`:'—'}</td>
+      <td style="text-align:center">${it.qty!=null?it.qty:'—'}</td>
+      <td><strong>${esc(it.title||'(tema)')}</strong>
+        <div style="margin-top:7px"><input value="${esc(it.note||'')}" onchange="saveMonthNote('${it.id}',this.value)" placeholder="✏️ observação ou ajuste neste tema (opcional)" style="width:100%;padding:8px 10px;border:1px dashed var(--line);border-radius:7px;font-size:12.5px;background:#fff"></div></td></tr>`).join('');
+  const totalPosts=items.reduce((s,it)=>s+(it.qty||0),0);
+
+  document.querySelector('.c-wrap').innerHTML=`
+    ${picker}
+    <div class="secbar"><div class="ico" style="background:${accent}">🗓️</div><h3>Planejamento do mês</h3></div>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 16px">Veja o que está planejado para o mês. Se quiser ajustar algum tema, escreva na observação ao lado. No fim, aprove o plano ou peça revisão.</p>
+    <div class="tcard" style="margin-bottom:8px"><table>
+      <thead style="background:${accent}"><tr><th>#</th><th>Semana</th><th>Formato</th><th>Qtd</th><th>Tema / observação</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="5" style="text-align:center;padding:26px;color:var(--ink-faint)">Sem linhas.</td></tr>'}</tbody></table></div>
+    <p style="font-size:12.5px;color:var(--ink-faint);text-align:right;margin-bottom:20px">Total planejado: <b>${totalPosts} posts</b> no mês</p>
+
+    <div class="send-block"><div class="send-inner">
+      <div class="si">🗓️</div><h2>Aprovação do mês</h2>
+      <p>Aprove o planejamento ou peça revisão. Suas observações por tema já ficam salvas.</p>
+      <div class="namewrap"><label>Seu nome</label><input id="cSenderM" placeholder="Quem está aprovando?" value="${esc(p.month_sender||'')}" onchange="S._mSender=this.value"></div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap">
+        <button class="b-ap ${st==='approved'?'on':''}" id="mAp" style="padding:11px 22px;font-size:14px" onclick="decideMonth('${p.id}','approved')">✓ Aprovar o mês</button>
+        <button class="b-rj ${st==='rejected'?'on':''}" id="mRj" style="padding:11px 22px;font-size:14px" onclick="decideMonth('${p.id}','rejected')">✕ Pedir revisão</button>
+      </div>
+      <div id="mStatus" style="margin-top:14px;font-size:13px;font-weight:600;color:${st==='approved'?'var(--green)':st==='rejected'?'var(--red)':'var(--ink-faint)'}">
+        ${st==='approved'?'✓ Mês aprovado'+(p.month_ts?' em '+esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):''):st==='rejected'?'✕ Revisão solicitada'+(p.month_ts?' em '+esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):''):'Aguardando sua avaliação'}</div>
+      <div class="send-btns" style="margin-top:18px">
+        <button class="btn btn-wa" onclick="cliWhatsapp()">📲 Avisar no WhatsApp</button>
+        <button class="btn btn-primary" onclick="cliEmail()">✉️ Enviar por e-mail</button>
+        <button class="btn btn-ghost no-print" onclick="window.print()">🖨️ PDF</button></div></div></div>
+    <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
+  S._mSender=p.month_sender||'';
+}
+async function saveMonthNote(itemId,v){
+  const it=S.cItems.find(x=>x.id===itemId); if(it) it.note=v;
+  const { error }=await sb.from('items').update({note:v}).eq('id',itemId);
+  if(error){ console.error(error); toast('Erro ao salvar observação'); }
+}
+async function decideMonth(pid,val){
+  const p=S.cProjects.find(x=>x.id===pid);
+  const sender=($('cSenderM')&&$('cSenderM').value.trim())||S._mSender||'';
+  // toggle off
+  if(p.month_status===val){
+    p.month_status=null;
+    await sb.from('projects').update({month_status:null,month_sender:sender,month_ts:new Date().toISOString()}).eq('id',pid);
+    $('mAp').classList.remove('on'); $('mRj').classList.remove('on');
+    $('mStatus').textContent='Aguardando sua avaliação'; $('mStatus').style.color='var(--ink-faint)';
+    return;
+  }
+  p.month_status=val; p.month_sender=sender; p.month_ts=new Date().toISOString();
+  const { error }=await sb.from('projects').update({month_status:val,month_sender:sender,month_ts:p.month_ts}).eq('id',pid);
+  if(error){ console.error(error); return toast('Erro ao salvar'); }
+  $('mAp').classList.toggle('on',val==='approved'); $('mRj').classList.toggle('on',val==='rejected');
+  const lbl=val==='approved'?'✓ Mês aprovado':'✕ Revisão solicitada';
+  $('mStatus').textContent=lbl+' em '+nowStr(); $('mStatus').style.color=val==='approved'?'var(--green)':'var(--red)';
+  toast(val==='approved'?'Mês aprovado!':'Revisão solicitada');
+}
 
 function shade(hex){ try{ const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255; r=Math.round(r*.68);g=Math.round(g*.68);b=Math.round(b*.68); return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);}catch(e){return hex;} }
 
@@ -1054,6 +1214,14 @@ function updateClientProgress(){
 }
 function buildClientText(){
   const c=S.cClient,p=S.cProjects.find(x=>x.id===S.cActiveProj);
+  if(p.mode==='mensal'){
+    const name=(S._mSender||p.month_sender||'').trim()||'—';
+    const stt=p.month_status==='approved'?'✅ MÊS APROVADO':p.month_status==='rejected'?'❌ REVISÃO SOLICITADA':'⏳ PENDENTE';
+    let t=`🗓️ *APROVAÇÃO DO MÊS — ${c.name}*\nPlanejamento: ${p.title} (${p.period||''})\nResponsável: ${name}\nStatus: ${stt}\nData: ${nowStr()}\n${'─'.repeat(38)}\n\n`;
+    S.cItems.forEach((it,i)=>{ t+=`${i+1}. [${it.week||''}] ${it.format||''} · ${it.qty!=null?it.qty+' post(s)':''} — ${it.title||'(tema)'}`; if(it.note)t+=`\n   ✏️ obs: "${it.note}"`; t+='\n'; });
+    t+=`\n${'─'.repeat(38)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
+    return t;
+  }
   const name=(S.cSender||'').trim()||'—';
   let t=`📋 *APROVAÇÃO DE CONTEÚDO — ${c.name}*\nCronograma: ${p.title} (${p.period||''})\nResponsável: ${name}\nData: ${nowStr()}\n${'─'.repeat(38)}\n\n`;
   S.cItems.forEach((it,i)=>{ t+=`*${i+1}. ${it.title||'Item '+(i+1)}*\n`;
