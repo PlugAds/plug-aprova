@@ -825,6 +825,7 @@ function itemEditorHTML(it,i){
           <span style="font-size:12px;color:var(--ink-faint)">ou</span>
           <input value="${esc(it.creative_url||'')}" onchange="upd('${it.id}','creative_url',this.value);refreshPrev('${it.id}',this.value)" placeholder="cole uma URL de imagem ou vídeo" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
           ${src?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearImg('${it.id}')">Remover</button>`:''}</div>
+        <p class="hint" style="margin-top:6px">Upload de até 50MB. Para vídeos maiores (reels longos), hospede no Drive/YouTube/etc. e cole o link acima.</p>
         <div class="creative-prev" id="prev-${it.id}">${src?creativeMediaHTML(it):'<div class="none">Sem criativo. Envie uma imagem ou vídeo (reels), cole uma URL, ou deixe vazio se ainda em produção.</div>'}</div></div>
     </div></div>`;
 }
@@ -894,7 +895,7 @@ function uploadImg(id,input){
   if(isVideo){
     // limite de segurança pro plano free do Storage
     const MB=f.size/1048576;
-    if(MB>200) return toast('Vídeo muito grande ('+MB.toFixed(0)+'MB). Máx. 200MB — comprima ou use uma URL.');
+    if(MB>50) return toast('Vídeo de '+MB.toFixed(0)+'MB excede o limite de 50MB. Para vídeos maiores, hospede em outro lugar e cole a URL no campo ao lado.');
     toast('Enviando vídeo… pode levar alguns segundos');
     (async()=>{
       const ext=(f.name.split('.').pop()||'mp4').toLowerCase().replace(/[^a-z0-9]/g,'')||'mp4';
