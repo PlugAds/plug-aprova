@@ -894,7 +894,7 @@ function uploadImg(id,input){
   if(isVideo){
     // limite de segurança pro plano free do Storage
     const MB=f.size/1048576;
-    if(MB>50) return toast('Vídeo muito grande ('+MB.toFixed(0)+'MB). Máx. 50MB — comprima ou use uma URL.');
+    if(MB>200) return toast('Vídeo muito grande ('+MB.toFixed(0)+'MB). Máx. 200MB — comprima ou use uma URL.');
     toast('Enviando vídeo… pode levar alguns segundos');
     (async()=>{
       const ext=(f.name.split('.').pop()||'mp4').toLowerCase().replace(/[^a-z0-9]/g,'')||'mp4';
