@@ -696,7 +696,12 @@ async function renderProject(projectId){
   await loadAll();
   const p=S.projects.find(x=>x.id===projectId); if(!p) return renderClients();
   const c=S.clients.find(x=>x.id===p.client_id);
-  const isMonthly=(p.mode==='mensal');
+  const isMonthly=(p.mode==='mensal') || (!p.mode && p.kind==='Mensal');
+  if(!p.mode){ // cronograma antigo sem modo: grava o modo inferido para consertar
+    const inferred=isMonthly?'mensal':'semanal';
+    sb.from('projects').update({mode:inferred}).eq('id',p.id);
+    p.mode=inferred;
+  }
   const { data:items } = await sb.from('items').select('*').eq('project_id',projectId).order('sort');
   S._items=items||[];
   const link=clientLinkFor(c);
@@ -708,6 +713,7 @@ async function renderProject(projectId){
       <p><span class="chip ${isMonthly?'chip-accent':'chip-ink'}">${isMonthly?'🗓️ Mensal':'📸 Semanal'}</span> <span class="chip chip-ink">${esc(p.kind)}</span> ${esc(p.period||'')} · ${(items||[]).length} ${isMonthly?'linhas':'itens'}</p></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="editProject('${p.id}')">Editar dados</button>
+        <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red-line)" onclick="delProject('${p.id}','${c.id}')">🗑 Excluir</button>
         <button class="btn btn-ghost" onclick="renderTracking('${p.id}')">📊 Respostas</button>
         ${p.published?`<button class="btn btn-primary" onclick="togglePublish('${p.id}',true)">✓ Publicado</button>`
           :`<button class="btn btn-accent" onclick="togglePublish('${p.id}',false)">🚀 Publicar</button>`}</div></div>
@@ -827,6 +833,14 @@ async function addItem(pid){
 function delItem(id){
   confirmDialog('Excluir item?','O item e suas respostas serão removidos.',async()=>{
     await sb.from('items').delete().eq('id',id); renderProject(S.projectId);
+  },true);
+}
+function delProject(id,clientId){
+  const p=S.projects.find(x=>x.id===id);
+  confirmDialog('Excluir cronograma?',`Remove <b>"${esc(p?p.title:'')}"</b> e todos os itens e respostas dele. Não pode ser desfeito.`,async()=>{
+    const { error }=await sb.from('projects').delete().eq('id',id);
+    if(error){ console.error(error); return toast('Erro ao excluir'); }
+    toast('Cronograma excluído'); renderClientPage(clientId);
   },true);
 }
 async function dupItem(id){
