@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>plug.aprova · Aprovação de conteúdo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B1B20; --ink-soft:#5C5B63; --ink-faint:#A6A29A;
+    --paper:#FCFBF9; --card:#FFFFFF; --line:#ECE9E2; --line-soft:#F1EEE8;
+    --accent:#FF5C38; --accent-deep:#D8431F; --accent-tint:#FFEDE7;
+    --green:#16A34A; --green-bg:#EAF7EE; --green-line:#BBE6C8;
+    --red:#E24B4A; --red-bg:#FBEAE4; --red-line:#F6C9BC;
+    --amber:#B45309; --amber-bg:#FFF7E8; --amber-line:#FAD89A; --amber-dot:#F59E0B;
+    --blue:#2563EB;
+    --r:14px; --r-sm:9px;
+    --shadow:0 1px 2px rgba(27,27,32,.03), 0 4px 18px rgba(27,27,32,.05);
+    --shadow-lg:0 12px 44px rgba(27,27,32,.13);
+    --font:'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{font-family:var(--font);background:var(--paper);color:var(--ink);line-height:1.5}
+  button{font-family:inherit;cursor:pointer}
+  input,textarea,select{font-family:inherit}
+  a{color:inherit}
+  ::selection{background:var(--accent-tint);color:var(--accent-deep)}
+
+  /* ---------- atoms ---------- */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;border-radius:var(--r-sm);
+    font-size:13.5px;font-weight:600;padding:10px 16px;transition:.15s;white-space:nowrap}
+  .btn-primary{background:var(--ink);color:#fff}
+  .btn-primary:hover{background:#000}
+  .btn-accent{background:var(--accent);color:#fff}
+  .btn-accent:hover{background:var(--accent-deep)}
+  .btn-ghost{background:#fff;color:var(--ink-soft);border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--line-soft);color:var(--ink)}
+  .btn-sm{padding:7px 12px;font-size:12.5px;border-radius:7px}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  .btn-wa{background:#25D366;color:#fff} .btn-wa:hover{background:#1eae54}
+  .icon-btn{width:33px;height:33px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
+    display:inline-flex;align-items:center;justify-content:center;font-size:15px;transition:.15s}
+  .icon-btn:hover{background:var(--line-soft);color:var(--ink)}
+
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px}
+  .field input,.field textarea,.field select{width:100%;padding:10px 13px;border:1px solid var(--line);border-radius:var(--r-sm);
+    font-size:14px;color:var(--ink);background:#fff;transition:.15s}
+  .field textarea{resize:vertical;min-height:90px;line-height:1.6}
+  .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
+  .field .hint{font-size:12px;color:var(--ink-faint);margin-top:5px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:600}
+  .chip-accent{background:var(--accent-tint);color:var(--accent-deep)}
+  .chip-ink{background:#EFECE5;color:var(--ink-soft)}
+  .sb{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:99px;font-size:11.5px;font-weight:700;white-space:nowrap}
+  .sb.pending{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-line)}
+  .sb.approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-line)}
+  .sb.rejected{background:var(--red-bg);color:var(--red);border:1px solid var(--red-line)}
+
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
+    padding:13px 22px;border-radius:10px;font-size:13.5px;font-weight:500;opacity:0;transition:.3s;z-index:900;pointer-events:none;box-shadow:var(--shadow-lg);max-width:90vw}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(27,27,32,.4);backdrop-filter:blur(3px);z-index:800;display:none;
+    align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--card);border-radius:18px;box-shadow:var(--shadow-lg);width:100%;max-width:560px;
+    animation:pop .22s cubic-bezier(.2,.9,.3,1.2)}
+  @keyframes pop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+  .modal-head{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+  .modal-head h3{font-size:19px;font-weight:700;letter-spacing:-.01em}
+  .modal-body{padding:22px 24px}
+  .modal-foot{padding:16px 24px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;background:var(--line-soft);border-radius:0 0 18px 18px}
+
+  /* ---------- auth screens ---------- */
+  .gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .gate-card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);
+    width:100%;max-width:420px;padding:38px 34px;text-align:center}
+  .logo{font-weight:800;letter-spacing:-.03em;line-height:1}
+  .logo .dot{color:var(--accent)}
+  .gate-card .logo{font-size:30px;margin-bottom:6px}
+  .gate-card .tag{font-size:9.5px;font-weight:700;letter-spacing:.16em;color:var(--ink-faint);margin-bottom:24px}
+  .gate-tabs{display:flex;gap:6px;background:var(--line-soft);padding:5px;border-radius:11px;margin-bottom:22px}
+  .gate-tab{flex:1;padding:9px;border:none;background:transparent;border-radius:8px;font-weight:600;font-size:13px;color:var(--ink-soft);transition:.15s}
+  .gate-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+  /* ---------- agency shell: sidebar ---------- */
+  .layout{display:flex;min-height:100vh}
+  .side{width:230px;flex-shrink:0;background:#fff;border-right:1px solid var(--line);padding:22px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .side .logo{font-size:21px;text-align:left;padding:2px 8px}
+  .side .tag{font-size:8.5px;font-weight:700;letter-spacing:.14em;color:var(--ink-faint);padding:2px 8px 0}
+  .nav-sec{font-size:9px;font-weight:700;letter-spacing:.13em;color:#BBB7AE;padding:18px 10px 6px}
+  .nav-item{display:flex;align-items:center;gap:11px;color:var(--ink-soft);padding:10px 12px;border-radius:9px;font-size:13.5px;font-weight:500;transition:.13s;cursor:pointer;border:none;background:none;width:100%;text-align:left}
+  .nav-item:hover{background:var(--line-soft);color:var(--ink)}
+  .nav-item.active{background:var(--accent);color:#fff;font-weight:600}
+  .nav-item .ic{font-size:17px;width:18px;text-align:center;flex-shrink:0}
+  .nav-item .badge{margin-left:auto;background:var(--accent);color:#fff;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 5px}
+  .nav-item.active .badge{background:rgba(255,255,255,.25)}
+  .side-foot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:14px 8px 4px;border-top:1px solid var(--line);margin-top:auto}
+  .side-foot .av{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+  .side-foot .nm{font-size:12.5px;font-weight:700;line-height:1.3}
+  .side-foot .rl{font-size:11px;color:var(--ink-faint)}
+
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{display:none}
+  .content{flex:1;padding:30px 36px 80px;max-width:1120px;width:100%}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+  .page-head h2{font-size:27px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+  .page-head p{color:var(--ink-soft);font-size:13.5px;margin-top:4px}
+  .crumb{font-size:13px;color:var(--ink-faint);margin-bottom:7px}
+  .crumb a{cursor:pointer} .crumb a:hover{color:var(--accent);text-decoration:underline} .crumb b{color:var(--ink)}
+
+  /* metric cards */
+  .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:22px}
+  .stat{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;box-shadow:var(--shadow)}
+  .stat .bar{height:3px}
+  .stat .in{padding:15px 17px}
+  .stat .lbl{font-size:9.5px;font-weight:700;letter-spacing:.09em;color:var(--ink-faint)}
+  .stat .num{font-size:27px;font-weight:800;margin:5px 0 2px;letter-spacing:-.02em}
+  .stat .desc{font-size:11.5px;color:var(--ink-faint)}
+
+  /* grid cards */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+  .ccard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:20px;
+    transition:.16s;cursor:pointer;position:relative;overflow:hidden}
+  .ccard:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--ink-faint)}
+  .ccard .swatch{position:absolute;top:0;left:0;right:0;height:4px}
+  .ccard .cinit{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:700;font-size:17px;margin-bottom:13px}
+  .ccard h3{font-size:16px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px}
+  .ccard .meta{font-size:12.5px;color:var(--ink-soft)}
+  .ccard .foot{display:flex;align-items:center;gap:7px;margin-top:14px;flex-wrap:wrap}
+  .minibar{height:6px;background:var(--line-soft);border-radius:99px;overflow:hidden;margin-top:13px}
+  .minibar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .5s}
+  .add-card{border:2px dashed var(--line);border-radius:var(--r);background:transparent;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:8px;color:var(--ink-faint);font-weight:600;font-size:13.5px;min-height:150px;transition:.16s}
+  .add-card:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-tint)}
+  .add-card .pl{font-size:26px;line-height:1}
+
+  .empty{text-align:center;padding:64px 20px;color:var(--ink-faint)}
+  .empty .em{font-size:38px;margin-bottom:12px;opacity:.6}
+  .empty h3{font-size:19px;color:var(--ink-soft);font-weight:700;margin-bottom:6px}
+
+  .secbar{display:flex;align-items:center;gap:11px;margin:30px 0 15px}
+  .secbar .ico{width:34px;height:34px;border-radius:9px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .secbar h3{font-size:18px;font-weight:700}
+  .secbar .spacer{flex:1}
+
+  .tcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  thead th{background:var(--ink);color:#fff;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:11px 15px;text-align:left}
+  tbody td{padding:12px 15px;font-size:13px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--line-soft)}
+  .pnum{width:25px;height:25px;border-radius:7px;background:var(--ink);color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+
+  .item-ed{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:15px;overflow:hidden}
+  .item-ed-head{display:flex;align-items:center;gap:11px;padding:14px 17px;background:var(--line-soft);border-bottom:1px solid var(--line)}
+  .item-ed-head .t{flex:1;font-weight:700;font-size:14.5px}
+  .item-ed-body{padding:17px}
+  .toggle-row{display:flex;gap:18px;margin-top:4px;flex-wrap:wrap}
+  .tg{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink-soft)}
+  .tg input{width:17px;height:17px;accent-color:var(--accent)}
+  .creative-prev{margin-top:10px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#16161a;min-height:120px;display:flex;align-items:center;justify-content:center}
+  .creative-prev img{width:100%;max-height:320px;object-fit:contain;display:block}
+  .creative-prev .none{color:rgba(255,255,255,.4);font-size:13px;padding:30px;text-align:center}
+
+  .track-row{display:flex;align-items:flex-start;gap:13px;padding:14px 0;border-bottom:1px solid var(--line-soft)}
+  .track-row:last-child{border-bottom:none}
+  .track-num{width:27px;height:27px;border-radius:8px;background:var(--line-soft);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;margin-top:2px}
+  .track-info{flex:1;min-width:0}
+  .track-info .tt{font-weight:700;font-size:14px;margin-bottom:5px}
+  .track-line{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--ink-soft);margin-bottom:4px}
+  .track-note{font-size:12.5px;color:var(--red);font-style:italic;margin-top:2px}
+
+  .link-box{display:flex;gap:8px;align-items:center;background:var(--line-soft);border:1px solid var(--line);border-radius:10px;padding:9px 12px;flex-wrap:wrap}
+  .link-box code{font-size:12.5px;color:var(--ink);font-weight:600;word-break:break-all}
+
+  .swcolor{width:33px;height:33px;border-radius:9px;cursor:pointer;border:3px solid transparent}
+
+  /* ---------- client view ---------- */
+  .c-header{padding:28px 26px;color:#fff;position:relative;overflow:hidden}
+  .c-header::after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.12),transparent 60%)}
+  .c-header .inner{max-width:860px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:20px;position:relative;z-index:1;flex-wrap:wrap}
+  .c-brand{display:flex;align-items:center;gap:15px}
+  .c-logo{width:52px;height:52px;border-radius:13px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:21px}
+  .c-brand h1{font-size:22px;font-weight:800;letter-spacing:-.01em}
+  .c-brand p{font-size:12.5px;opacity:.85;margin-top:2px}
+  .c-meta{text-align:right;font-size:12.5px;opacity:.92;line-height:1.7}
+  .c-meta b{font-weight:700}
+  .c-sub{background:rgba(0,0,0,.16);padding:12px 26px}
+  .c-sub .inner{max-width:860px;margin:0 auto;display:flex;align-items:center;gap:15px}
+  .c-sub .lbl{font-size:12.5px;opacity:.9;white-space:nowrap}
+  .c-track{flex:1;height:7px;background:rgba(255,255,255,.22);border-radius:99px;overflow:hidden}
+  .c-track i{display:block;height:100%;width:0;background:#fff;border-radius:99px;transition:width .5s}
+  .c-count{font-size:12.5px;font-weight:700;white-space:nowrap}
+  .c-wrap{max-width:860px;margin:0 auto;padding:32px 22px 40px}
+  .proj-pick{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .proj-tab{padding:9px 16px;border:1px solid var(--line);background:#fff;border-radius:99px;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:.15s}
+  .proj-tab.active{color:#fff;border-color:transparent}
+
+  .post-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:24px;overflow:hidden}
+  .post-head{padding:17px 21px;background:var(--line-soft);border-bottom:1px solid var(--line);display:flex;gap:13px;align-items:center;flex-wrap:wrap}
+  .post-head .pnum{width:37px;height:37px;border-radius:10px;font-size:15px}
+  .post-head .pinfo{flex:1;min-width:160px}
+  .post-head .pinfo h3{font-size:15.5px;font-weight:700}
+  .post-head .pinfo p{font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .blk{padding:19px 21px;border-bottom:1px solid var(--line-soft)}
+  .blk:last-child{border-bottom:none}
+  .blk-label{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .copy-block{background:var(--line-soft);border-left:4px solid var(--accent);border-radius:0 9px 9px 0;padding:15px 17px}
+  .copy-block p{font-size:14.5px;line-height:1.75;color:var(--ink);white-space:pre-line}
+  .copy-block .tags{font-size:13px;color:var(--accent-deep);font-style:italic;margin-top:10px;line-height:1.6}
+
+  .approve-box{margin-top:13px;border:1.5px solid var(--line);border-radius:11px;padding:13px 15px;background:#fff;transition:.18s}
+  .approve-box.is-approved{border-color:var(--green-line);background:var(--green-bg)}
+  .approve-box.is-rejected{border-color:var(--red-line);background:var(--red-bg)}
+  .ap-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ap-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);flex:1}
+  .b-ap,.b-rj{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:8px;font-size:13px;font-weight:700;border:2px solid transparent;transition:.15s;background:#fff}
+  .b-ap{color:var(--green);border-color:var(--green-line)} .b-ap:hover{background:var(--green-bg)} .b-ap.on{background:var(--green);color:#fff;border-color:var(--green)}
+  .b-rj{color:var(--red);border-color:var(--red-line)} .b-rj:hover{background:var(--red-bg)} .b-rj.on{background:var(--red);color:#fff;border-color:var(--red)}
+  .changefield{display:none;margin-top:11px}
+  .changefield.show{display:block}
+  .changefield label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--red);display:block;margin-bottom:6px}
+  .changefield textarea{width:100%;padding:10px 12px;border:1.5px solid var(--red-line);border-radius:8px;font-size:13.5px;min-height:62px;resize:vertical;background:#fff}
+  .changefield textarea:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(226,75,74,.12)}
+  .ap-ts{margin-top:8px;font-size:11.5px;color:var(--ink-faint);font-style:italic;display:none}
+  .ap-ts.show{display:block}
+
+  .send-block{margin-top:18px;border:2px solid var(--accent);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+  .send-inner{padding:28px;background:linear-gradient(135deg,var(--accent-tint),#fff 65%);text-align:center}
+  .send-inner .si{font-size:32px;margin-bottom:6px}
+  .send-inner h2{font-size:21px;font-weight:800}
+  .send-inner p{font-size:13.5px;color:var(--ink-soft);margin-top:6px}
+  .namewrap{margin:18px auto 0;display:flex;align-items:center;gap:12px;background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:11px 15px;max-width:400px}
+  .namewrap label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);white-space:nowrap}
+  .namewrap input{flex:1;border:none;outline:none;font-size:14px;background:transparent}
+  .send-btns{display:flex;gap:11px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+  .send-alert{display:none;align-items:center;gap:10px;background:var(--amber-bg);border:1px solid var(--amber-line);border-radius:9px;padding:11px 17px;margin:16px auto 0;font-size:13px;color:var(--amber);text-align:left;max-width:480px}
+  .send-alert.show{display:flex}
+
+  .loading{min-height:55vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--ink-faint)}
+  .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .banner{padding:10px 16px;font-size:12.5px;text-align:center;background:var(--amber-bg);color:var(--amber);border-bottom:1px solid var(--amber-line)}
+
+  @media (max-width:860px){
+    .side{position:fixed;left:-260px;z-index:200;transition:.25s;box-shadow:var(--shadow-lg)}
+    .side.open{left:0}
+    .topbar{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);background:#fff;position:sticky;top:0;z-index:60}
+    .topbar .logo{font-size:18px}
+    .content{padding:22px 16px 80px}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .row2{grid-template-columns:1fr}
+    .page-head h2{font-size:23px}
+    .c-meta{text-align:left}
+    .scrim{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:150;display:none}
+    .scrim.show{display:block}
+  }
+  @media print{
+    .side,.topbar,.send-block,.secbar .spacer,.no-print{display:none!important}
+    .content{padding:0} body{background:#fff}
+    .post-card,.tcard{box-shadow:none;break-inside:avoid}
+    .ap-ts{display:block!important}
+  }
+</style>
+</head>
+<body>
+<div id="app"><div class="loading"><div class="spin"></div><p>Carregando…</p></div></div>
+<div class="modal-bg" id="modalBg"><div class="modal" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ====================================================================
+   plug.aprova — aprovação de conteúdo · Supabase + RLS por cliente
+   ==================================================================== */
+
+/* ---------- CONFIG (preenchido) ---------- */
+const CFG = {
+  url:      'https://gsioeuglijfmzbbgotum.supabase.co',
+  anonKey:  'sb_publishable_rW8LOtnSgFiDr77wYG6vWw_Bw-RNivb',
+  agencyPass:'PluG@7354891032',          // segredo do painel (header x-agency-pass)
+  bucket:   'criativos',
+  agencyName:'Plug Comunicação',
+  agencyUser:'Cachote'
+};
+
+/* ---------- helpers ---------- */
+const $ = (id)=> document.getElementById(id);
+const esc = (s)=> (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nowStr = ()=> new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+const PLATFORMS = ['Instagram Feed','Instagram Stories','Instagram Reels','Facebook','LinkedIn','TikTok','YouTube','Blog','E-mail mkt','Outro'];
+const KINDS = ['Mensal','Semanal','Quinzenal','Campanha','Avulso'];
+const PALETTE = ['#FF5C38','#2563EB','#0E7C66','#7C3AED','#DB2777','#EA580C','#0D9488','#4F46E5','#B91C1C','#0F766E'];
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2800); }
+
+/* ---------- Supabase clients ---------- */
+/* dois "modos" de conexão: agência (header com segredo) e cliente (header com token do link) */
+let sb = null;            // cliente ativo do supabase-js
+let MODE = null;          // 'agency' | 'client'
+let clientToken = null;   // token do cliente (quando MODE=client)
+
+function makeClient(headers){
+  return window.supabase.createClient(CFG.url, CFG.anonKey, {
+    global:{ headers }, auth:{ persistSession:false }
+  });
+}
+function connectAgency(){ MODE='agency'; sb = makeClient({ 'x-agency-pass': CFG.agencyPass }); }
+function connectClient(token){ MODE='client'; clientToken=token; sb = makeClient({ 'x-client-token': token }); }
+
+/* ---------- estado de UI ---------- */
+const S = { view:null, clientId:null, projectId:null, pollTimer:null,
+            clients:[], cClient:null, cProjects:[], cActiveProj:null, cItems:[], cDecisions:{} };
+
+/* ---------- modal ---------- */
+function openModal(html){ $('modalBox').innerHTML=html; $('modalBg').classList.add('show'); }
+function closeModal(){ $('modalBg').classList.remove('show'); }
+$('modalBg').addEventListener('click',e=>{ if(e.target===$('modalBg')) closeModal(); });
+function confirmDialog(title,msg,onYes,danger){
+  openModal(`<div class="modal-head"><h3>${esc(title)}</h3></div>
+    <div class="modal-body"><p style="font-size:14px;color:var(--ink-soft);line-height:1.6">${msg}</p></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn ${danger?'btn-accent':'btn-primary'}" id="cfYes">Confirmar</button></div>`);
+  $('cfYes').onclick=()=>{ closeModal(); onYes(); };
+}
+
+/* ====================================================================
+   ROTEAMENTO
+   ==================================================================== */
+function getParams(){
+  const out={};
+  try{ new URLSearchParams(location.search).forEach((v,k)=>out[k]=v); }catch(e){}
+  try{ const h=location.hash.replace(/^#\/?\??/,''); if(h){ // formato #/c/TOKEN
+      const m=h.match(/^c\/([A-Za-z0-9]+)/); if(m) out.c=m[1];
+      new URLSearchParams(h).forEach((v,k)=>{ if(!out[k]) out[k]=v; });
+    } }catch(e){}
+  return out;
+}
+
+async function boot(){
+  if(!window.supabase){ $('app').innerHTML=`<div class="gate"><div class="gate-card"><div class="logo">plug<span class="dot">.</span>aprova</div><p style="margin-top:14px;color:var(--red)">Não foi possível carregar a biblioteca do Supabase. Verifique a conexão e recarregue.</p></div></div>`; return; }
+  const p=getParams();
+  if(p.c){ return enterClient(p.c); }       // link do cliente
+  renderLanding();
+}
+
+/* ====================================================================
+   LANDING (Agência × Cliente)
+   ==================================================================== */
+function renderLanding(){
+  $('app').innerHTML=`
+  <div class="gate"><div class="gate-card">
+    <div class="logo">plug<span class="dot">.</span>aprova</div>
+    <div class="tag">APROVAÇÃO DE CONTEÚDO</div>
+    <div class="gate-tabs">
+      <button class="gate-tab active" id="tabAg" onclick="switchGate('ag')">Sou da agência</button>
+      <button class="gate-tab" id="tabCl" onclick="switchGate('cl')">Sou cliente</button>
+    </div>
+    <div id="gateAg" style="text-align:left">
+      <div class="field"><label>Senha do painel</label><input id="lgPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Entrar no painel</button>
+    </div>
+    <div id="gateCl" style="display:none;text-align:left">
+      <div class="field"><label>Código de acesso</label><input id="clCode" placeholder="cole seu código" style="letter-spacing:.04em;font-weight:600" onkeydown="if(event.key==='Enter')doClientCode()"></div>
+      <button class="btn btn-accent" style="width:100%" onclick="doClientCode()">Acessar minhas aprovações</button>
+      <p class="hint" style="text-align:center;margin-top:13px">Normalmente você entra direto pelo link enviado pela ${esc(CFG.agencyName)}. O código serve caso precise abrir manualmente.</p>
+    </div>
+  </div></div>`;
+}
+function switchGate(w){
+  $('tabAg').classList.toggle('active',w==='ag'); $('tabCl').classList.toggle('active',w==='cl');
+  $('gateAg').style.display=w==='ag'?'block':'none'; $('gateCl').style.display=w==='cl'?'block':'none';
+}
+async function doLogin(){
+  const pass=$('lgPass').value.trim(); if(!pass) return toast('Digite a senha');
+  // valida tentando ler como agência
+  const test = makeClient({ 'x-agency-pass': pass });
+  const { error } = await test.from('clients').select('id').limit(1);
+  if(error){ return toast('Senha incorreta ou erro de conexão'); }
+  CFG.agencyPass=pass; connectAgency(); renderDashboard();
+}
+function doClientCode(){ const c=$('clCode').value.trim(); if(c) enterClient(c); }
+
+/* ====================================================================
+   SHELL DA AGÊNCIA (sidebar)
+   ==================================================================== */
+function navItem(view,icon,label,badge){
+  const active = S.view===view ? 'active':'';
+  const bd = badge!=null && badge>0 ? `<span class="badge">${badge}</span>`:'';
+  return `<button class="nav-item ${active}" onclick="nav('${view}')"><span class="ic">${icon}</span>${label}${bd}</button>`;
+}
+function shell(body){
+  const pend = S._pendCount||0;
+  $('app').innerHTML=`
+  <div class="layout">
+    <div class="scrim" id="scrim" onclick="toggleSide()"></div>
+    <aside class="side" id="side">
+      <div class="logo">plug<span class="dot">.</span>aprova</div>
+      <div class="tag">GESTÃO DE APROVAÇÕES</div>
+      <div class="nav-sec">PRINCIPAL</div>
+      ${navItem('dash','◈','Dashboard')}
+      ${navItem('clients','◉','Clientes', S.clients.length)}
+      <div class="nav-sec">OPERAÇÃO</div>
+      ${navItem('settings','⚙','Configurações')}
+      <div class="side-foot">
+        <div class="av">${esc((CFG.agencyUser||'P').slice(0,2).toUpperCase())}</div>
+        <div><div class="nm">${esc(CFG.agencyUser||'Agência')}</div><div class="rl">${esc(CFG.agencyName)}</div></div>
+      </div>
+    </aside>
+    <div class="main">
+      <div class="topbar"><button class="icon-btn" onclick="toggleSide()">☰</button><div class="logo">plug<span class="dot">.</span>aprova</div></div>
+      <div class="content" id="content">${body}</div>
+    </div>
+  </div>`;
+}
+function toggleSide(){ $('side').classList.toggle('open'); $('scrim').classList.toggle('show'); }
+function nav(view){
+  if($('side')){ $('side').classList.remove('open'); $('scrim')?.classList.remove('show'); }
+  if(view==='dash') renderDashboard();
+  else if(view==='clients') renderClients();
+  else if(view==='settings') renderSettings();
+}
+
+/* ====================================================================
+   CARREGAMENTO DE DADOS (agência)
+   ==================================================================== */
+async function loadAll(){
+  const { data:clients, error:e1 } = await sb.from('clients').select('*').order('created_at');
+  if(e1){ toast('Erro ao carregar clientes'); console.error(e1); return false; }
+  const { data:projects } = await sb.from('projects').select('*').order('created_at');
+  S.clients = clients||[]; S.projects = projects||[];
+  return true;
+}
+async function projectStats(projectId){
+  // conta itens e decisões p/ progresso
+  const { data:items } = await sb.from('items').select('id,has_copy,has_creative').eq('project_id',projectId);
+  if(!items||!items.length) return {total:0,done:0,appr:0,rej:0};
+  const ids=items.map(i=>i.id);
+  const { data:decs } = await sb.from('decisions').select('item_id,kind,status').in('item_id',ids);
+  let total=0; items.forEach(i=>{ if(i.has_copy)total++; if(i.has_creative)total++; });
+  let done=0,appr=0,rej=0; (decs||[]).forEach(d=>{ done++; if(d.status==='approved')appr++; else if(d.status==='rejected')rej++; });
+  return {total,done,appr,rej};
+}
+
+/* ---------- DASHBOARD ---------- */
+async function renderDashboard(){
+  S.view='dash';
+  shell(`<div class="loading"><div class="spin"></div><p>Carregando painel…</p></div>`);
+  if(!await loadAll()) return;
+
+  // agrega métricas
+  let activeClients=S.clients.length, pend=0, appr=0, rej=0;
+  const recent=[];
+  for(const p of S.projects){
+    const st=await projectStats(p.id);
+    pend += (st.total-st.done); appr+=st.appr; rej+=st.rej;
+  }
+  // aprovações recentes (últimas decisões)
+  const { data:recentDecs } = await sb.from('decisions').select('*').order('updated_at',{ascending:false}).limit(6);
+  S._pendCount=pend;
+
+  const stat=(bar,lbl,num,desc)=>`<div class="stat"><div class="bar" style="background:${bar}"></div><div class="in"><div class="lbl">${lbl}</div><div class="num">${num}</div><div class="desc">${desc}</div></div></div>`;
+
+  let recentRows='';
+  if(recentDecs&&recentDecs.length){
+    for(const d of recentDecs){
+      const { data:it } = await sb.from('items').select('title,project_id').eq('id',d.item_id).single();
+      let cname='', ccolor='#999';
+      if(it){ const pr=S.projects.find(x=>x.id===it.project_id); const cl=pr&&S.clients.find(x=>x.id===pr.client_id); if(cl){cname=cl.name;ccolor=cl.color;} }
+      const ok=d.status==='approved';
+      recentRows+=`<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line-soft)">
+        <div style="width:26px;height:26px;border-radius:7px;background:${ccolor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${esc((cname||'?').slice(0,2).toUpperCase())}</div>
+        <div style="font-size:12.5px;flex:1">${esc(cname)} · <span style="color:var(--ink-faint)">${esc(it?it.title:'(item)')} · ${d.kind==='copy'?'Copy':'Criativo'}</span></div>
+        <span class="sb ${ok?'approved':'rejected'}">${ok?'✓ Aprovado':'✕ Ajuste'}</span></div>`;
+    }
+  } else { recentRows=`<div style="padding:16px 0;color:var(--ink-faint);font-size:13px">Nenhuma resposta ainda. Publique um cronograma e envie o link ao cliente.</div>`; }
+
+  const body=`
+    <div class="page-head"><div><h2>Dashboard</h2><p>Visão geral das aprovações de todos os clientes.</p></div>
+      <button class="btn btn-accent" onclick="editClient()">＋ Novo cliente</button></div>
+    <div class="stats">
+      ${stat('var(--accent)','CLIENTES ATIVOS',activeClients,'Cadastrados no sistema')}
+      ${stat('var(--amber-dot)','AGUARDANDO APROVAÇÃO',pend,'Itens pendentes do cliente')}
+      ${stat('var(--green)','APROVADOS',appr,'Liberados para publicar')}
+      ${stat('var(--red)','AJUSTES PEDIDOS',rej,'Reprovados com observação')}
+    </div>
+    <div class="tcard" style="padding:17px 20px">
+      <div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:14px;font-weight:700">Aprovações recentes</div>
+      <span style="font-size:12.5px;font-weight:600;color:var(--accent);cursor:pointer" onclick="nav('clients')">Ver clientes →</span></div>
+      ${recentRows}
+    </div>`;
+  shell(body);
+}
+
+/* ---------- CLIENTES ---------- */
+async function renderClients(){
+  S.view='clients';
+  shell(`<div class="loading"><div class="spin"></div><p>Carregando clientes…</p></div>`);
+  if(!await loadAll()) return;
+  let cards='';
+  for(const c of S.clients){
+    const projs=S.projects.filter(p=>p.client_id===c.id);
+    let total=0,done=0;
+    for(const p of projs){ const st=await projectStats(p.id); total+=st.total; done+=st.done; }
+    const pct=total?Math.round(done/total*100):0;
+    cards+=`<div class="ccard" onclick="renderClientPage('${c.id}')">
+      <div class="swatch" style="background:${c.color}"></div>
+      <div class="cinit" style="background:${c.color}">${esc(c.initials||c.name.slice(0,2).toUpperCase())}</div>
+      <h3>${esc(c.name)}</h3>
+      <div class="meta">${projs.length} cronograma${projs.length!==1?'s':''}${c.contact?' · '+esc(c.contact):''}</div>
+      <div class="minibar"><i style="width:${pct}%;background:${c.color}"></i></div>
+      <div class="foot"><span class="chip chip-ink">${pct}% aprovado</span></div></div>`;
+  }
+  const body=`
+    <div class="page-head"><div><h2>Clientes</h2><p>Cada cliente recebe um link privado, isolado dos demais.</p></div>
+      <button class="btn btn-accent" onclick="editClient()">＋ Novo cliente</button></div>
+    ${S.clients.length? `<div class="grid">${cards}<button class="add-card" onclick="editClient()"><span class="pl">＋</span>Adicionar cliente</button></div>`
+      : `<div class="empty"><div class="em">🗂️</div><h3>Nenhum cliente ainda</h3><p>Crie o primeiro cliente para montar um cronograma.</p><br><button class="btn btn-accent" onclick="editClient()">＋ Criar primeiro cliente</button></div>`}`;
+  shell(body);
+}
+
+function editClient(id){
+  const c=id?S.clients.find(x=>x.id===id):null;
+  const color=c?c.color:PALETTE[S.clients.length%PALETTE.length];
+  openModal(`
+    <div class="modal-head"><h3>${c?'Editar':'Novo'} cliente</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Nome do cliente</label><input id="cName" value="${c?esc(c.name):''}" placeholder="Ex.: DRC Logística Integrada"></div>
+      <div class="row2">
+        <div class="field"><label>Iniciais (logo)</label><input id="cInit" maxlength="3" value="${c?esc(c.initials||''):''}" placeholder="DRC"></div>
+        <div class="field"><label>Contato (opcional)</label><input id="cContact" value="${c?esc(c.contact||''):''}" placeholder="Santos / SP"></div>
+      </div>
+      <div class="field"><label>Cor de destaque</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="palette">
+          ${PALETTE.map(p=>`<button onclick="pickColor('${p}')" data-c="${p}" class="swcolor" style="background:${p};border-color:${p===color?'var(--ink)':'transparent'}"></button>`).join('')}
+        </div><input type="hidden" id="cColor" value="${color}"></div>
+      <div class="field"><label>PIN do cliente (opcional)</label><input id="cPin" maxlength="8" value="${c?esc(c.pin||''):''}" placeholder="ex.: 4 dígitos — deixe vazio para abrir só com o link">
+        <p class="hint">Se preenchido, o cliente digita este PIN ao abrir o link. Camada extra de proteção.</p></div>
+    </div>
+    <div class="modal-foot">
+      ${c?`<button class="btn btn-ghost" style="margin-right:auto;color:var(--red);border-color:var(--red-line)" onclick="delClient('${c.id}')">Excluir</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveClient(${c?`'${c.id}'`:'null'})">Salvar</button></div>`);
+}
+function pickColor(c){ $('cColor').value=c; document.querySelectorAll('.swcolor').forEach(b=>b.style.borderColor=(b.dataset.c===c?'var(--ink)':'transparent')); }
+async function saveClient(id){
+  const name=$('cName').value.trim(); if(!name) return toast('Informe o nome');
+  const rec={ name, initials:($('cInit').value.trim()||name.slice(0,2)).toUpperCase(), contact:$('cContact').value.trim(), color:$('cColor').value, pin:$('cPin').value.trim()||null };
+  let res;
+  if(id){ res=await sb.from('clients').update(rec).eq('id',id); }
+  else { res=await sb.from('clients').insert(rec); }
+  if(res.error){ console.error(res.error); return toast('Erro ao salvar'); }
+  closeModal(); toast('Cliente salvo'); renderClients();
+}
+function delClient(id){
+  confirmDialog('Excluir cliente?','Remove o cliente e <b>todos os cronogramas</b> vinculados. Não pode ser desfeito.',async()=>{
+    const { error }=await sb.from('clients').delete().eq('id',id);
+    if(error) return toast('Erro ao excluir');
+    closeModal(); toast('Cliente excluído'); renderClients();
+  },true);
+}
+
+/* ---------- PÁGINA DO CLIENTE (lista de cronogramas) ---------- */
+async function renderClientPage(clientId){
+  S.view='clients'; S.clientId=clientId;
+  shell(`<div class="loading"><div class="spin"></div><p>Carregando…</p></div>`);
+  if(!await loadAll()) return;
+  const c=S.clients.find(x=>x.id===clientId); if(!c) return renderClients();
+  const projs=S.projects.filter(p=>p.client_id===clientId).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  let cards='';
+  for(const p of projs){
+    const st=await projectStats(p.id); const pct=st.total?Math.round(st.done/st.total*100):0;
+    cards+=`<div class="ccard" onclick="renderProject('${p.id}')">
+      <div class="swatch" style="background:${c.color}"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <span class="chip chip-ink">${esc(p.kind)}</span>
+        ${p.published?'<span class="sb approved">● Publicado</span>':'<span class="sb pending">○ Rascunho</span>'}</div>
+      <h3 style="margin-top:12px">${esc(p.title)}</h3>
+      <div class="meta">${esc(p.period||'')} · ${st.total/2|0} itens</div>
+      <div class="minibar"><i style="width:${pct}%;background:${c.color}"></i></div>
+      <div class="foot"><span class="chip chip-ink">${pct}% aprovado</span></div></div>`;
+  }
+  const body=`
+    <div class="page-head"><div>
+      <div class="crumb"><a onclick="nav('clients')">Clientes</a> / <b>${esc(c.name)}</b></div>
+      <h2 style="display:flex;align-items:center;gap:12px"><span class="cinit" style="background:${c.color};width:38px;height:38px;margin:0;font-size:15px">${esc(c.initials||c.name.slice(0,2).toUpperCase())}</span>${esc(c.name)}</h2></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="showClientLink('${c.id}')">🔗 Link do cliente</button>
+        <button class="btn btn-ghost" onclick="editClient('${c.id}')">Editar</button>
+        <button class="btn btn-accent" onclick="editProject(null,'${c.id}')">＋ Cronograma</button></div></div>
+    ${projs.length? `<div class="grid">${cards}<button class="add-card" onclick="editProject(null,'${c.id}')"><span class="pl">＋</span>Novo cronograma</button></div>`
+      : `<div class="empty"><div class="em">📅</div><h3>Nenhum cronograma</h3><p>Monte o primeiro cronograma deste cliente.</p><br><button class="btn btn-accent" onclick="editProject(null,'${c.id}')">＋ Criar cronograma</button></div>`}`;
+  shell(body);
+}
+
+function clientLinkFor(c){
+  const base=location.origin+location.pathname;
+  return base+'#/c/'+c.access_token;
+}
+function showClientLink(clientId){
+  const c=S.clients.find(x=>x.id===clientId);
+  const link=clientLinkFor(c);
+  const pubProj=S.projects.filter(p=>p.client_id===clientId&&p.published).length;
+  openModal(`
+    <div class="modal-head"><h3>Link privado · ${esc(c.name)}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:14px">Envie este link para o cliente. Ele abre <b>apenas</b> os cronogramas publicados deste cliente — nenhum outro cliente é acessível por ele.</p>
+      <div class="link-box" style="margin-bottom:6px"><code>${esc(link)}</code></div>
+      ${c.pin?`<p class="hint">🔒 Protegido por PIN. O cliente também precisará digitar o PIN definido.</p>`:''}
+      ${pubProj===0?`<div class="send-alert show" style="margin:14px 0 0">⚠️ Nenhum cronograma publicado ainda — o cliente verá uma tela vazia até você publicar.</div>`:''}
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="copyText('${esc(link)}','Link copiado!')">📋 Copiar link</button>
+      <button class="btn btn-wa" onclick="shareWa('${esc(c.name)}','${esc(link)}')">📲 Enviar no WhatsApp</button>
+    </div>`);
+}
+function copyText(t,msg){ navigator.clipboard.writeText(t).then(()=>toast(msg||'Copiado!')).catch(()=>toast('Não foi possível copiar')); }
+function shareWa(name,link){
+  const msg=`Olá! Segue o link para aprovação do conteúdo — ${name}.\n\nAcesse: ${link}\n\nÉ só aprovar cada item ou marcar "reprovar" e descrever o ajuste. Obrigado!`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
+
+/* ---------- editar cronograma (dados) ---------- */
+function editProject(id,clientId){
+  const p=id?S.projects.find(x=>x.id===id):null;
+  openModal(`
+    <div class="modal-head"><h3>${p?'Editar':'Novo'} cronograma</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Título</label><input id="pTitle" value="${p?esc(p.title):''}" placeholder="Ex.: Conteúdo Redes Sociais"></div>
+      <div class="row2">
+        <div class="field"><label>Tipo</label><select id="pKind">${KINDS.map(k=>`<option ${p&&p.kind===k?'selected':''}>${k}</option>`).join('')}</select></div>
+        <div class="field"><label>Período</label><input id="pPeriod" value="${p?esc(p.period||''):''}" placeholder="Ex.: Maio 2026"></div>
+      </div></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveProject(${p?`'${p.id}'`:'null'},${clientId?`'${clientId}'`:'null'})">${p?'Salvar':'Criar e montar'}</button></div>`);
+}
+async function saveProject(id,clientId){
+  const title=$('pTitle').value.trim(); if(!title) return toast('Informe o título');
+  const rec={ title, kind:$('pKind').value, period:$('pPeriod').value.trim() };
+  if(id){ const {error}=await sb.from('projects').update(rec).eq('id',id); if(error)return toast('Erro ao salvar'); closeModal(); renderProject(id); }
+  else{ rec.client_id=clientId; rec.published=false;
+    const {data,error}=await sb.from('projects').insert(rec).select().single();
+    if(error){console.error(error);return toast('Erro ao criar');} closeModal(); renderProject(data.id); }
+  toast('Cronograma salvo');
+}
+
+/* ====================================================================
+   EDITOR DO CRONOGRAMA (itens)
+   ==================================================================== */
+async function renderProject(projectId){
+  S.view='clients'; S.projectId=projectId;
+  shell(`<div class="loading"><div class="spin"></div><p>Carregando cronograma…</p></div>`);
+  await loadAll();
+  const p=S.projects.find(x=>x.id===projectId); if(!p) return renderClients();
+  const c=S.clients.find(x=>x.id===p.client_id);
+  const { data:items } = await sb.from('items').select('*').eq('project_id',projectId).order('sort');
+  const ids=(items||[]).map(i=>i.id);
+  let decs=[]; if(ids.length){ const r=await sb.from('decisions').select('*').in('item_id',ids); decs=r.data||[]; }
+  const decMap={}; decs.forEach(d=>decMap[d.item_id+'-'+d.kind]=d);
+  S._items=items||[]; S._decMap=decMap;
+
+  const cell=(need,d)=> !need?'<span class="chip chip-ink">—</span>'
+    : d&&d.status==='approved'?'<span class="sb approved">✓</span>'
+    : d&&d.status==='rejected'?'<span class="sb rejected">✕</span>':'<span class="sb pending">○</span>';
+  const scheduleRows=(items&&items.length)?items.map((it,i)=>`<tr>
+      <td><span class="pnum">${i+1}</span></td>
+      <td><strong>${esc(it.title||'(sem título)')}</strong></td>
+      <td>${(it.platforms||[]).map(x=>`<span class="chip chip-accent">${esc(x)}</span>`).join(' ')||'<span class="chip chip-ink">—</span>'} ${it.format?`<span class="chip chip-ink">${esc(it.format)}</span>`:''}</td>
+      <td>${cell(it.has_copy,decMap[it.id+'-copy'])}</td>
+      <td>${cell(it.has_creative,decMap[it.id+'-creative'])}</td></tr>`).join('')
+    : `<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:28px">Nenhum item ainda.</td></tr>`;
+  const itemsEd=(items||[]).map((it,i)=>itemEditorHTML(it,i)).join('');
+  const link=clientLinkFor(c);
+
+  const body=`
+    <div class="page-head"><div>
+      <div class="crumb"><a onclick="nav('clients')">Clientes</a> / <a onclick="renderClientPage('${c.id}')">${esc(c.name)}</a> / <b>${esc(p.title)}</b></div>
+      <h2>${esc(p.title)}</h2>
+      <p><span class="chip chip-ink">${esc(p.kind)}</span> ${esc(p.period||'')} · ${(items||[]).length} itens</p></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="editProject('${p.id}')">Editar dados</button>
+        <button class="btn btn-ghost" onclick="renderTracking('${p.id}')">📊 Respostas</button>
+        ${p.published?`<button class="btn btn-primary" onclick="togglePublish('${p.id}',true)">✓ Publicado</button>`
+          :`<button class="btn btn-accent" onclick="togglePublish('${p.id}',false)">🚀 Publicar</button>`}</div></div>
+    ${p.published?`<div class="tcard" style="padding:14px 17px;margin-bottom:8px;display:flex;align-items:center;gap:13px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:13px">🔗 Link do cliente:</span>
+        <div class="link-box" style="flex:1;min-width:240px"><code>${esc(link)}</code></div>
+        <button class="btn btn-ghost btn-sm" onclick="copyText('${esc(link)}','Link copiado!')">Copiar</button>
+        <button class="btn btn-ghost btn-sm" onclick="shareWa('${esc(c.name)}','${esc(link)}')">WhatsApp</button></div>`:''}
+    <div class="secbar"><div class="ico">📅</div><h3>Cronograma</h3></div>
+    <div class="tcard"><table><thead><tr><th>#</th><th>Pauta</th><th>Plataforma / Formato</th><th>Copy</th><th>Criativo</th></tr></thead><tbody>${scheduleRows}</tbody></table></div>
+    <div class="secbar"><div class="ico">✏️</div><h3>Itens / Pautas</h3><div class="spacer"></div><button class="btn btn-ghost btn-sm" onclick="addItem('${p.id}')">＋ Adicionar item</button></div>
+    <div id="itemsList">${itemsEd||`<div class="empty"><div class="em">📝</div><h3>Sem itens</h3><p>Adicione a primeira pauta/post.</p><br><button class="btn btn-accent" onclick="addItem('${p.id}')">＋ Adicionar item</button></div>`}</div>
+    ${(items||[]).length?`<div style="text-align:center;margin-top:18px"><button class="btn btn-ghost" onclick="addItem('${p.id}')">＋ Adicionar mais um item</button></div>`:''}`;
+  shell(body);
+}
+
+function itemEditorHTML(it,i){
+  const src=it.creative_url||'';
+  return `<div class="item-ed" id="ed-${it.id}">
+    <div class="item-ed-head"><span class="pnum">${i+1}</span><span class="t">${esc(it.title||'(sem título)')}</span>
+      <button class="icon-btn" title="Subir" onclick="moveItem('${it.id}',-1)">↑</button>
+      <button class="icon-btn" title="Descer" onclick="moveItem('${it.id}',1)">↓</button>
+      <button class="icon-btn" title="Duplicar" onclick="dupItem('${it.id}')">⧉</button>
+      <button class="icon-btn" title="Excluir" style="color:var(--red)" onclick="delItem('${it.id}')">🗑</button></div>
+    <div class="item-ed-body">
+      <div class="field"><label>Título da pauta</label><input value="${esc(it.title||'')}" onchange="upd('${it.id}','title',this.value)" placeholder="Ex.: Operação 24/7"></div>
+      <div class="row2">
+        <div class="field"><label>Plataformas</label><div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${PLATFORMS.map(pl=>`<button class="chip ${(it.platforms||[]).includes(pl)?'chip-accent':'chip-ink'}" style="cursor:pointer;border:none" onclick="togglePlat('${it.id}','${pl}')">${pl}</button>`).join('')}
+        </div></div>
+        <div class="field"><label>Formato</label><input value="${esc(it.format||'')}" onchange="upd('${it.id}','format',this.value)" placeholder="Ex.: Carrossel 4 cards"></div></div>
+      <div class="field"><label>Ângulo / objetivo (opcional)</label><input value="${esc(it.angle||'')}" onchange="upd('${it.id}','angle',this.value)" placeholder="Ex.: Autoridade e tradição"></div>
+      <div class="toggle-row">
+        <label class="tg"><input type="checkbox" ${it.has_copy?'checked':''} onchange="upd('${it.id}','has_copy',this.checked)">Aprovar copy</label>
+        <label class="tg"><input type="checkbox" ${it.has_creative?'checked':''} onchange="upd('${it.id}','has_creative',this.checked)">Aprovar criativo</label></div>
+      <div class="field" style="margin-top:13px"><label>Copy (texto do post)</label><textarea onchange="upd('${it.id}','copy',this.value)" placeholder="Escreva a legenda…">${esc(it.copy||'')}</textarea></div>
+      <div class="field"><label>Hashtags (opcional)</label><input value="${esc(it.hashtags||'')}" onchange="upd('${it.id}','hashtags',this.value)" placeholder="#LogisticaIntegrada #Santos"></div>
+      <div class="field"><label>Criativo</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-${it.id}').click()">📤 Enviar imagem</button>
+          <input type="file" id="file-${it.id}" accept="image/*" style="display:none" onchange="uploadImg('${it.id}',this)">
+          <span style="font-size:12px;color:var(--ink-faint)">ou</span>
+          <input value="${esc(it.creative_url||'')}" onchange="upd('${it.id}','creative_url',this.value);refreshPrev('${it.id}',this.value)" placeholder="cole uma URL de imagem" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+          ${src?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearImg('${it.id}')">Remover</button>`:''}</div>
+        <div class="creative-prev" id="prev-${it.id}">${src?`<img src="${esc(src)}">`:'<div class="none">Sem criativo. Envie uma imagem, cole uma URL, ou deixe vazio se ainda em produção.</div>'}</div></div>
+    </div></div>`;
+}
+
+/* ---------- mutações de item ---------- */
+async function upd(id,field,val){
+  const rec={}; rec[field]=val;
+  const it=S._items.find(x=>x.id===id); if(it) it[field]=val;
+  const { error }=await sb.from('items').update(rec).eq('id',id);
+  if(error){ console.error(error); toast('Erro ao salvar'); }
+}
+async function togglePlat(id,pl){
+  const it=S._items.find(x=>x.id===id); if(!it)return;
+  it.platforms=it.platforms||[]; const i=it.platforms.indexOf(pl);
+  if(i>=0) it.platforms.splice(i,1); else it.platforms.push(pl);
+  await sb.from('items').update({platforms:it.platforms}).eq('id',id);
+  renderProject(S.projectId);
+}
+async function addItem(pid){
+  const sort=(S._items.length?Math.max(...S._items.map(i=>i.sort||0))+1:0);
+  const rec={ project_id:pid, title:'', platforms:['Instagram Feed'], format:'', angle:'', has_copy:true, has_creative:true, copy:'', hashtags:'', creative_url:null, sort };
+  const { error }=await sb.from('items').insert(rec);
+  if(error){ console.error(error); return toast('Erro ao adicionar'); }
+  await renderProject(pid);
+  setTimeout(()=>{ const els=document.querySelectorAll('.item-ed'); const last=els[els.length-1]; if(last&&last.scrollIntoView)last.scrollIntoView({behavior:'smooth',block:'center'}); },90);
+}
+function delItem(id){
+  confirmDialog('Excluir item?','O item e suas respostas serão removidos.',async()=>{
+    await sb.from('items').delete().eq('id',id); renderProject(S.projectId);
+  },true);
+}
+async function dupItem(id){
+  const it=S._items.find(x=>x.id===id); if(!it)return;
+  const rec={ project_id:it.project_id, title:(it.title||'')+' (cópia)', platforms:it.platforms, format:it.format, angle:it.angle, has_copy:it.has_copy, has_creative:it.has_creative, copy:it.copy, hashtags:it.hashtags, creative_url:it.creative_url, sort:(it.sort||0)+1 };
+  await sb.from('items').insert(rec); renderProject(S.projectId); toast('Item duplicado');
+}
+async function moveItem(id,dir){
+  const i=S._items.findIndex(x=>x.id===id); const j=i+dir;
+  if(j<0||j>=S._items.length)return;
+  const a=S._items[i], b=S._items[j];
+  await sb.from('items').update({sort:b.sort}).eq('id',a.id);
+  await sb.from('items').update({sort:a.sort}).eq('id',b.id);
+  renderProject(S.projectId);
+}
+function refreshPrev(id,url){ const el=$('prev-'+id); if(el) el.innerHTML=url?`<img src="${esc(url)}">`:'<div class="none">Sem criativo.</div>'; }
+async function clearImg(id){ await sb.from('items').update({creative_url:null}).eq('id',id); renderProject(S.projectId); }
+
+/* upload p/ Supabase Storage */
+function uploadImg(id,input){
+  const f=input.files&&input.files[0]; if(!f)return;
+  if(!f.type.startsWith('image/')) return toast('Selecione uma imagem');
+  toast('Enviando imagem…');
+  const r=new FileReader();
+  r.onload=e=>{
+    const img=new Image();
+    img.onload=async()=>{
+      const maxW=1400; let w=img.width,h=img.height;
+      if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      cv.toBlob(async(blob)=>{
+        if(!blob) return toast('Falha ao processar imagem');
+        const path=S.projectId+'/'+id+'-'+Date.now()+'.jpg';
+        const { error }=await sb.storage.from(CFG.bucket).upload(path,blob,{contentType:'image/jpeg',upsert:true});
+        if(error){ console.error(error); return toast('Erro no upload: '+error.message); }
+        const { data:pub }=sb.storage.from(CFG.bucket).getPublicUrl(path);
+        await sb.from('items').update({creative_url:pub.publicUrl}).eq('id',id);
+        renderProject(S.projectId); toast('Imagem adicionada');
+      },'image/jpeg',0.85);
+    };
+    img.src=e.target.result;
+  };
+  r.readAsDataURL(f);
+}
+
+/* publicar */
+async function togglePublish(id,cur){
+  const p=S.projects.find(x=>x.id===id);
+  if(!cur){ const {count}=await sb.from('items').select('id',{count:'exact',head:true}).eq('project_id',id);
+    if(!count) return toast('Adicione ao menos um item antes de publicar'); }
+  const { error }=await sb.from('projects').update({published:!cur}).eq('id',id);
+  if(error) return toast('Erro ao publicar');
+  toast(!cur?'Publicado! Envie o link ao cliente.':'Despublicado'); renderProject(id);
+}
+
+/* ====================================================================
+   ACOMPANHAR RESPOSTAS (live)
+   ==================================================================== */
+async function renderTracking(projectId){
+  S.view='clients'; S.projectId=projectId;
+  if(S.pollTimer) clearInterval(S.pollTimer);
+  await drawTracking(projectId);
+  S.pollTimer=setInterval(()=>drawTracking(projectId,true),6000);
+}
+async function drawTracking(projectId){
+  await loadAll();
+  const p=S.projects.find(x=>x.id===projectId); if(!p){ if(S.pollTimer)clearInterval(S.pollTimer); return; }
+  const c=S.clients.find(x=>x.id===p.client_id);
+  const { data:items } = await sb.from('items').select('*').eq('project_id',projectId).order('sort');
+  const ids=(items||[]).map(i=>i.id);
+  let decs=[]; if(ids.length){ const r=await sb.from('decisions').select('*').in('item_id',ids); decs=r.data||[]; }
+  const dm={}; let sender=''; decs.forEach(d=>{ dm[d.item_id+'-'+d.kind]=d; if(d.sender)sender=d.sender; });
+  let total=0,done=0,appr=0,rej=0;
+  (items||[]).forEach(it=>{ ['copy','creative'].forEach(t=>{ if(it['has_'+t]){ total++; const d=dm[it.id+'-'+t]; if(d){done++; if(d.status==='approved')appr++; else rej++;} } }); });
+  const pct=total?Math.round(done/total*100):0;
+  const rows=(items||[]).map((it,i)=>{
+    const blk=(t,lbl)=>{ if(!it['has_'+t])return ''; const d=dm[it.id+'-'+t];
+      const st=!d?'<span class="sb pending">○ Pendente</span>':d.status==='approved'?'<span class="sb approved">✓ Aprovado</span>':'<span class="sb rejected">✕ Reprovado</span>';
+      return `<div class="track-line"><b style="color:var(--ink);min-width:58px">${lbl}:</b> ${st} ${d&&d.updated_at?`<span style="color:var(--ink-faint)">· ${esc(new Date(d.updated_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</span>`:''}</div>
+        ${d&&d.status==='rejected'&&d.notes?`<div class="track-note">↳ "${esc(d.notes)}"</div>`:''}`; };
+    return `<div class="track-row"><div class="track-num">${i+1}</div><div class="track-info"><div class="tt">${esc(it.title||'(sem título)')}</div>${blk('copy','Copy')}${blk('creative','Criativo')}</div></div>`;
+  }).join('');
+  const stat=(col,lbl,n)=>`<div class="stat"><div class="bar" style="background:${col}"></div><div class="in"><div class="lbl">${lbl}</div><div class="num" style="color:${col}">${n}</div></div></div>`;
+  const body=`
+    <div class="page-head"><div>
+      <div class="crumb"><a onclick="renderClientPage('${c.id}')">${esc(c.name)}</a> / <a onclick="renderProject('${p.id}')">${esc(p.title)}</a> / <b>Respostas</b></div>
+      <h2>Acompanhamento</h2><p>Atualiza sozinho a cada 6s${sender?` · respondido por <b>${esc(sender)}</b>`:''}</p></div>
+      <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="if(S.pollTimer)clearInterval(S.pollTimer);renderProject('${p.id}')">← Editor</button>
+      <button class="btn btn-ghost" onclick="window.print()">🖨️ PDF</button></div></div>
+    <div class="stats">
+      <div class="stat"><div class="bar" style="background:var(--accent)"></div><div class="in"><div class="lbl">PROGRESSO</div><div class="num">${pct}%</div><div class="minibar"><i style="width:${pct}%"></i></div></div></div>
+      ${stat('var(--green)','APROVADOS',appr)}${stat('var(--red)','REPROVADOS',rej)}${stat('var(--amber-dot)','PENDENTES',total-done)}</div>
+    <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem itens.</p></div>'}</div>`;
+  shell(body);
+}
+
+/* ====================================================================
+   CONFIGURAÇÕES
+   ==================================================================== */
+async function renderSettings(){
+  S.view='settings';
+  const { data:ag } = await sb.from('agency').select('*').eq('id',1).maybeSingle();
+  const a=ag||{name:CFG.agencyName,whatsapp:'',email:''};
+  shell(`
+    <div class="page-head"><div><h2>Configurações</h2><p>Dados da agência usados nas telas dos clientes.</p></div></div>
+    <div class="tcard" style="padding:24px;max-width:560px">
+      <div class="field"><label>Nome da agência</label><input id="stName" value="${esc(a.name||'')}"></div>
+      <div class="row2">
+        <div class="field"><label>WhatsApp padrão</label><input id="stWa" value="${esc(a.whatsapp||'')}" placeholder="5513991116057"></div>
+        <div class="field"><label>E-mail padrão</label><input id="stEmail" value="${esc(a.email||'')}" placeholder="contato@agencia.com"></div></div>
+      <button class="btn btn-accent" onclick="saveSettings()">Salvar</button>
+    </div>
+    <div class="tcard" style="padding:20px 24px;max-width:560px;margin-top:16px">
+      <div style="font-size:13.5px;font-weight:700;margin-bottom:6px">🔒 Segurança</div>
+      <p style="font-size:13px;color:var(--ink-soft);line-height:1.6">Cada cliente acessa só os próprios cronogramas, através de um link com token secreto e validado no banco (RLS). O painel da agência é protegido por senha. Para trocar a senha do painel, fale comigo que ajusto no Supabase.</p>
+    </div>`);
+}
+async function saveSettings(){
+  const rec={ id:1, name:$('stName').value.trim(), whatsapp:$('stWa').value.trim(), email:$('stEmail').value.trim() };
+  if(!rec.name) return toast('Informe o nome');
+  const { error }=await sb.from('agency').upsert(rec);
+  if(error){ console.error(error); return toast('Erro ao salvar'); }
+  CFG.agencyName=rec.name; toast('Configurações salvas');
+}
+
+/* ====================================================================
+   MODO CLIENTE (entrada pelo link)
+   ==================================================================== */
+async function enterClient(token){
+  $('app').innerHTML=`<div class="loading"><div class="spin"></div><p>Abrindo suas aprovações…</p></div>`;
+  connectClient(token);
+  // busca o cliente (RLS só deixa ver o próprio)
+  const { data:clients, error } = await sb.from('clients').select('*');
+  if(error||!clients||!clients.length){
+    $('app').innerHTML=`<div class="gate"><div class="gate-card"><div class="logo">plug<span class="dot">.</span>aprova</div><div class="tag" style="margin-bottom:18px">APROVAÇÃO DE CONTEÚDO</div><p style="color:var(--ink-soft);font-size:14px">Link inválido ou expirado. Confira com a sua agência se o endereço está correto.</p></div></div>`;
+    return;
+  }
+  const c=clients[0];
+  S.cClient=c;
+  if(c.pin){ return clientPinGate(c); }
+  loadClientView();
+}
+function clientPinGate(c){
+  $('app').innerHTML=`<div class="gate"><div class="gate-card">
+    <div class="c-logo" style="margin:0 auto 16px;background:${c.color};border:none">${esc(c.initials||c.name.slice(0,2).toUpperCase())}</div>
+    <div class="logo" style="font-size:22px">${esc(c.name)}</div>
+    <div class="tag" style="margin-bottom:22px">APROVAÇÃO DE CONTEÚDO</div>
+    <div class="field" style="text-align:left"><label>PIN de acesso</label><input id="cliPin" type="password" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')checkClientPin()"></div>
+    <button class="btn btn-accent" style="width:100%" onclick="checkClientPin()">Entrar</button>
+  </div></div>`;
+}
+function checkClientPin(){
+  if($('cliPin').value.trim()===String(S.cClient.pin)){ loadClientView(); }
+  else toast('PIN incorreto');
+}
+
+async function loadClientView(){
+  const c=S.cClient;
+  const { data:projects } = await sb.from('projects').select('*').eq('client_id',c.id).order('created_at',{ascending:false});
+  S.cProjects=projects||[];
+  if(!S.cProjects.length){
+    $('app').innerHTML=clientHeader(c)+`<div class="c-wrap"><div class="empty"><div class="em">📭</div><h3>Nada por aqui ainda</h3><p>Assim que a ${esc(CFG.agencyName)} publicar um cronograma, ele aparece aqui para sua aprovação.</p></div></div>`;
+    return;
+  }
+  S.cActiveProj=S.cProjects[0].id;
+  renderClientView();
+}
+
+function clientHeader(c,p){
+  return `<div class="c-header" style="background:${c.color}"><div class="inner">
+    <div class="c-brand"><div class="c-logo">${esc(c.initials||c.name.slice(0,2).toUpperCase())}</div>
+      <div><h1>${esc(c.name)}</h1><p>Aprovação de conteúdo · ${esc(CFG.agencyName)}</p></div></div>
+    ${p?`<div class="c-meta"><div>${esc(p.kind)} · <b>${esc(p.period||'')}</b></div><div>${esc(p.title)}</div></div>`:''}
+  </div></div>`;
+}
+
+async function renderClientView(){
+  const c=S.cClient;
+  const p=S.cProjects.find(x=>x.id===S.cActiveProj);
+  $('app').innerHTML=`${clientHeader(c,p)}
+    <div class="c-sub" style="background:${shade(c.color)}"><div class="inner"><span class="lbl">Progresso</span><div class="c-track"><i id="cFill"></i></div><span class="c-count" id="cCount"></span></div></div>
+    <div class="c-wrap"><div class="loading"><div class="spin"></div><p>Carregando itens…</p></div></div>`;
+  const { data:items } = await sb.from('items').select('*').eq('project_id',p.id).order('sort');
+  const ids=(items||[]).map(i=>i.id);
+  let decs=[]; if(ids.length){ const r=await sb.from('decisions').select('*').in('item_id',ids); decs=r.data||[]; }
+  const dm={}; let sender=''; decs.forEach(d=>{ dm[d.item_id+'-'+d.kind]=d; if(d.sender)sender=d.sender; });
+  S.cItems=items||[]; S.cDecisions=dm; S.cSender=sender;
+
+  const picker=S.cProjects.length>1?`<div class="proj-pick">${S.cProjects.map(pr=>`<button class="proj-tab ${pr.id===S.cActiveProj?'active':''}" style="${pr.id===S.cActiveProj?`background:${c.color}`:''}" onclick="switchProj('${pr.id}')">${esc(pr.title)}${pr.published?'':' (rascunho)'}</button>`).join('')}</div>`:'';
+
+  if(!p.published){
+    document.querySelector('.c-wrap').innerHTML=picker+`<div class="empty"><div class="em">⏳</div><h3>Em preparação</h3><p>Este cronograma ainda está sendo finalizado pela agência.</p></div>`;
+    return;
+  }
+  const cards=(items||[]).map((it,i)=>clientCardHTML(it,i,dm,c)).join('');
+  document.querySelector('.c-wrap').innerHTML=`
+    ${picker}
+    <div class="secbar"><div class="ico" style="background:${c.color}">📅</div><h3>Cronograma</h3></div>
+    <div class="tcard" style="margin-bottom:8px"><table><thead style="background:${c.color}"><tr><th>#</th><th>Pauta</th><th>Plataforma</th><th>Copy</th><th>Criativo</th></tr></thead><tbody id="cSchedule"></tbody></table></div>
+    <div class="secbar"><div class="ico" style="background:${c.color}">📸</div><h3>Itens para aprovação</h3></div>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Aprove cada item ou marque <b>reprovar</b> e descreva o ajuste.</p>
+    ${cards||'<div class="empty"><p>Nenhum item disponível.</p></div>'}
+    <div class="send-block"><div class="send-inner"><div class="si">📤</div><h2>Enviar aprovação</h2>
+      <p>Suas respostas são salvas automaticamente. Ao final, confirme seu nome e avise a agência.</p>
+      <div class="namewrap"><label>Seu nome</label><input id="cSender" placeholder="Quem está aprovando?" value="${esc(sender||'')}" onchange="saveSender(this.value)"></div>
+      <div class="send-alert" id="cAlert"></div>
+      <div class="send-btns">
+        <button class="btn btn-wa" onclick="cliWhatsapp()">📲 Avisar no WhatsApp</button>
+        <button class="btn btn-primary" onclick="cliEmail()">✉️ Enviar por e-mail</button>
+        <button class="btn btn-ghost" onclick="copyText(buildClientText(),'Resumo copiado!')">📋 Copiar resumo</button>
+        <button class="btn btn-ghost no-print" onclick="window.print()">🖨️ PDF</button></div></div></div>
+    <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
+  drawClientSchedule(); updateClientProgress();
+}
+function switchProj(id){ S.cActiveProj=id; renderClientView(); }
+
+function shade(hex){ try{ const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255; r=Math.round(r*.68);g=Math.round(g*.68);b=Math.round(b*.68); return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);}catch(e){return hex;} }
+
+function clientCardHTML(it,i,dm,c){
+  const accent=c.color; const blocks=[];
+  if(it.has_copy){ blocks.push(`<div class="blk"><div class="blk-label"><span class="chip chip-accent">✍️ Copy</span></div>
+    <div class="copy-block" style="border-left-color:${accent}"><p>${esc(it.copy||'(sem texto)')}</p>${it.hashtags?`<p class="tags" style="color:${shade(accent)}">${esc(it.hashtags)}</p>`:''}</div>
+    ${approveBoxHTML(it.id,'copy','Aprovação da Copy',dm)}</div>`); }
+  if(it.has_creative){ const src=it.creative_url||'';
+    blocks.push(`<div class="blk"><div class="blk-label"><span class="chip chip-ink">🎨 Criativo</span></div>
+    <div class="creative-prev">${src?`<img src="${esc(src)}">`:'<div class="none">Criativo em produção. Será incluído quando finalizado.</div>'}</div>
+    ${approveBoxHTML(it.id,'creative','Aprovação do Criativo',dm)}</div>`); }
+  return `<div class="post-card"><div class="post-head"><span class="pnum" style="background:${accent}">${i+1}</span>
+    <div class="pinfo"><h3>${esc(it.title||'Item '+(i+1))}</h3><p>${(it.platforms||[]).join(' · ')||''}${it.format?' · '+esc(it.format):''}${it.angle?' · '+esc(it.angle):''}</p></div></div>${blocks.join('')}</div>`;
+}
+function approveBoxHTML(itemId,type,title,dm){
+  const key=itemId+'-'+type; const d=dm[key];
+  const cls=d?(d.status==='approved'?'is-approved':'is-rejected'):'';
+  return `<div class="approve-box ${cls}" id="box-${key}"><div class="ap-top"><span class="ap-title">${title}</span>
+    <button class="b-ap ${d&&d.status==='approved'?'on':''}" onclick="decide('${itemId}','${type}','approved')">✓ Aprovar</button>
+    <button class="b-rj ${d&&d.status==='rejected'?'on':''}" onclick="decide('${itemId}','${type}','rejected')">✕ Reprovar</button></div>
+    <div class="changefield ${d&&d.status==='rejected'?'show':''}" id="cf-${key}"><label>O que quer alterar?</label>
+      <textarea id="nt-${key}" placeholder="Descreva o ajuste…" onchange="saveNote('${key}',this.value)">${d&&d.notes?esc(d.notes):''}</textarea></div>
+    <div class="ap-ts ${d?'show':''}" id="ts-${key}">${d?(d.status==='approved'?'Aprovado':'Reprovado')+' em '+esc(new Date(d.updated_at||Date.now()).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):''}</div></div>`;
+}
+function drawClientSchedule(){
+  const dm=S.cDecisions, items=S.cItems, accent=S.cClient.color;
+  const el=$('cSchedule'); if(!el)return;
+  el.innerHTML=items.map((it,i)=>{
+    const cell=(need,t)=>{ if(!need)return '<span class="chip chip-ink">—</span>'; const d=dm[it.id+'-'+t];
+      return !d?'<span class="sb pending">○</span>':d.status==='approved'?'<span class="sb approved">✓</span>':'<span class="sb rejected">✕</span>'; };
+    return `<tr><td><span class="pnum" style="background:${accent}">${i+1}</span></td><td><strong>${esc(it.title||'')}</strong></td>
+      <td style="font-size:12px">${(it.platforms||[]).join(', ')}</td><td>${cell(it.has_copy,'copy')}</td><td>${cell(it.has_creative,'creative')}</td></tr>`;
+  }).join('');
+}
+
+async function decide(itemId,type,val){
+  const key=itemId+'-'+type; const cur=S.cDecisions[key];
+  const box=$('box-'+key), cf=$('cf-'+key), ts=$('ts-'+key);
+  const ap=box.querySelector('.b-ap'), rj=box.querySelector('.b-rj');
+  // toggle off
+  if(cur&&cur.status===val){
+    delete S.cDecisions[key];
+    ap.classList.remove('on'); rj.classList.remove('on'); box.classList.remove('is-approved','is-rejected');
+    cf.classList.remove('show'); ts.classList.remove('show'); ts.textContent='';
+    await sb.from('decisions').delete().eq('item_id',itemId).eq('kind',type);
+    drawClientSchedule(); updateClientProgress(); return;
+  }
+  const notes=$('nt-'+key)?$('nt-'+key).value.trim():'';
+  const rec={ item_id:itemId, kind:type, status:val, notes:val==='rejected'?notes:'', sender:(S.cSender||$('cSender')&&$('cSender').value.trim()||''), updated_at:new Date().toISOString() };
+  S.cDecisions[key]={...rec};
+  ap.classList.toggle('on',val==='approved'); rj.classList.toggle('on',val==='rejected');
+  box.classList.remove('is-approved','is-rejected'); box.classList.add(val==='approved'?'is-approved':'is-rejected');
+  cf.classList.toggle('show',val==='rejected'); if(val==='rejected'&&$('nt-'+key))$('nt-'+key).focus();
+  ts.textContent=(val==='approved'?'Aprovado':'Reprovado')+' em '+nowStr(); ts.classList.add('show');
+  drawClientSchedule(); updateClientProgress();
+  const { error }=await sb.from('decisions').upsert(rec,{onConflict:'item_id,kind'});
+  if(error){ console.error(error); toast('Erro ao salvar resposta'); }
+}
+async function saveNote(key,v){
+  if(!S.cDecisions[key])return; S.cDecisions[key].notes=v;
+  const it=key.replace(/-(copy|creative)$/,''); const tp=key.endsWith('copy')?'copy':'creative';
+  await sb.from('decisions').update({notes:v}).eq('item_id',it).eq('kind',tp);
+}
+function saveSender(v){ S.cSender=v; /* salvo junto na próxima decisão; atualiza existentes */ syncSender(v); }
+async function syncSender(v){ const keys=Object.keys(S.cDecisions); for(const k of keys){ const it=k.replace(/-(copy|creative)$/,''); const tp=k.endsWith('copy')?'copy':'creative'; await sb.from('decisions').update({sender:v}).eq('item_id',it).eq('kind',tp);} }
+
+function updateClientProgress(){
+  let total=0,done=0;
+  S.cItems.forEach(it=>{ if(it.has_copy){total++;if(S.cDecisions[it.id+'-copy'])done++;} if(it.has_creative){total++;if(S.cDecisions[it.id+'-creative'])done++;} });
+  const pct=total?Math.round(done/total*100):0;
+  if($('cFill'))$('cFill').style.width=pct+'%';
+  if($('cCount'))$('cCount').textContent=`${done} de ${total} avaliados (${pct}%)`;
+  const al=$('cAlert'); if(!al)return; const pend=total-done;
+  if(pend>0){ al.classList.add('show'); al.innerHTML=`⚠️ Ainda há <b>&nbsp;${pend} ${pend===1?'item pendente':'itens pendentes'}</b>.`; }
+  else al.classList.remove('show');
+}
+function buildClientText(){
+  const c=S.cClient,p=S.cProjects.find(x=>x.id===S.cActiveProj);
+  const name=(S.cSender||'').trim()||'—';
+  let t=`📋 *APROVAÇÃO DE CONTEÚDO — ${c.name}*\nCronograma: ${p.title} (${p.period||''})\nResponsável: ${name}\nData: ${nowStr()}\n${'─'.repeat(38)}\n\n`;
+  S.cItems.forEach((it,i)=>{ t+=`*${i+1}. ${it.title||'Item '+(i+1)}*\n`;
+    [['copy','Copy'],['creative','Criativo']].forEach(([tp,lbl])=>{ if(!it['has_'+tp])return;
+      const d=S.cDecisions[it.id+'-'+tp]; const ic=!d?'⏳ PENDENTE':d.status==='approved'?'✅ APROVADO':'❌ REPROVADO';
+      t+=`   ${lbl}: ${ic}`; if(d&&d.status==='rejected'&&d.notes)t+=` → "${d.notes}"`; t+='\n'; }); t+='\n'; });
+  t+=`${'─'.repeat(38)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
+  return t;
+}
+async function agencyContact(){ const {data}=await sb.from('agency').select('whatsapp,email').eq('id',1).maybeSingle(); return data||{}; }
+async function cliWhatsapp(){ const a=await agencyContact(); const wa=(a.whatsapp||'').replace(/\D/g,''); window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(buildClientText()),'_blank'); }
+async function cliEmail(){ const a=await agencyContact(); window.location.href='mailto:'+(a.email||'')+'?subject='+encodeURIComponent('Aprovação — '+S.cClient.name+' · '+(S.cProjects.find(x=>x.id===S.cActiveProj)||{}).title)+'&body='+encodeURIComponent(buildClientText()); }
+
+boot();
+</script>
+</body>
+</html>
