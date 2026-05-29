@@ -175,6 +175,7 @@
   .tg input{width:17px;height:17px;accent-color:var(--accent)}
   .creative-prev{margin-top:10px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#16161a;min-height:120px;display:flex;align-items:center;justify-content:center}
   .creative-prev img{width:100%;max-height:320px;object-fit:contain;display:block}
+  .creative-prev video{width:100%;max-height:360px;display:block;background:#000}
   .creative-prev .none{color:rgba(255,255,255,.4);font-size:13px;padding:30px;text-align:center}
 
   .track-row{display:flex;align-items:flex-start;gap:13px;padding:14px 0;border-bottom:1px solid var(--line-soft)}
@@ -763,24 +764,34 @@ async function renderProject(projectId){
 /* ---------- editor MENSAL (planejamento) ---------- */
 const FORMATS=['Estático','Carrossel','Reels','Story'];
 function monthlyEditorBody(p,items){
-  const rows=items.map((it,i)=>`<tr>
-      <td><span class="pnum">${i+1}</span></td>
-      <td style="min-width:120px"><input value="${esc(it.week||'')}" onchange="upd('${it.id}','week',this.value)" placeholder="Semana 1" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px"></td>
-      <td style="min-width:130px"><select onchange="upd('${it.id}','format',this.value)" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px">${['',...FORMATS].map(f=>`<option ${it.format===f?'selected':''} value="${f}">${f||'—'}</option>`).join('')}</select></td>
-      <td style="width:80px"><input type="number" min="0" value="${it.qty!=null?it.qty:''}" onchange="upd('${it.id}','qty',this.value?parseInt(this.value):null)" placeholder="0" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px"></td>
-      <td><input value="${esc(it.title||'')}" onchange="upd('${it.id}','title',this.value)" placeholder="Tema do conteúdo" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px"></td>
-      <td style="width:40px;text-align:center"><button class="icon-btn" style="color:var(--red);width:28px;height:28px" title="Excluir" onclick="delItem('${it.id}')">🗑</button></td></tr>`).join('');
+  const cards=items.map((it,i)=>`<div class="item-ed">
+    <div class="item-ed-head">
+      <span class="pnum">${i+1}</span>
+      <input value="${esc(it.week||'')}" onchange="upd('${it.id}','week',this.value)" placeholder="Semana 1" style="width:120px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-weight:600">
+      <select onchange="upd('${it.id}','format',this.value)" style="width:140px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px">${['',...FORMATS].map(f=>`<option ${it.format===f?'selected':''} value="${f}">${f||'Formato'}</option>`).join('')}</select>
+      <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--ink-soft)">Qtd</span><input type="number" min="0" value="${it.qty!=null?it.qty:''}" onchange="upd('${it.id}','qty',this.value?parseInt(this.value):null)" placeholder="0" style="width:56px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px"></div>
+      <div class="spacer" style="flex:1"></div>
+      <button class="icon-btn" title="Subir" onclick="moveItem('${it.id}',-1)">↑</button>
+      <button class="icon-btn" title="Descer" onclick="moveItem('${it.id}',1)">↓</button>
+      <button class="icon-btn" style="color:var(--red)" title="Excluir" onclick="delItem('${it.id}')">🗑</button>
+    </div>
+    <div class="item-ed-body">
+      <div class="field" style="margin-bottom:11px"><label>Tema do conteúdo</label>
+        <input value="${esc(it.title||'')}" onchange="upd('${it.id}','title',this.value)" placeholder="Ex.: Os 3 erros mais comuns na logística" style="font-weight:600"></div>
+      <div class="field" style="margin-bottom:0"><label>Descrição / detalhamento (opcional)</label>
+        <textarea onchange="upd('${it.id}','description',this.value)" placeholder="Descreva a ideia do post, o que vai em cada card do carrossel, roteiro do reels, referências…" style="min-height:90px">${esc(it.description||'')}</textarea></div>
+    </div></div>`).join('');
   return `
     <div class="secbar"><div class="ico">🗓️</div><h3>Planejamento do mês</h3><div class="spacer"></div><button class="btn btn-ghost btn-sm" onclick="addMonthRow('${p.id}')">＋ Adicionar linha</button></div>
-    <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 14px">Defina, por semana: formato, quantos posts e o tema. O cliente aprova o mês inteiro e pode comentar em cada tema.</p>
-    <div class="tcard"><table><thead><tr><th>#</th><th>Semana</th><th>Formato</th><th>Qtd</th><th>Tema do conteúdo</th><th></th></tr></thead>
-      <tbody>${rows||`<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:28px">Nenhuma linha ainda.</td></tr>`}</tbody></table></div>
-    <div style="text-align:center;margin-top:16px"><button class="btn btn-ghost" onclick="addMonthRow('${p.id}')">＋ Adicionar linha</button></div>`;
+    <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 16px">Por semana: formato, quantos posts, o tema e — se quiser — uma descrição mais detalhada (roteiro, cards do carrossel, ideia). O cliente aprova o mês e pode comentar em cada item.</p>
+    ${cards||`<div class="empty"><div class="em">🗓️</div><h3>Sem linhas</h3><p>Adicione a primeira semana do planejamento.</p><br><button class="btn btn-accent" onclick="addMonthRow('${p.id}')">＋ Adicionar linha</button></div>`}
+    ${items.length?`<div style="text-align:center;margin-top:16px"><button class="btn btn-ghost" onclick="addMonthRow('${p.id}')">＋ Adicionar linha</button></div>`:''}`;
 }
 async function addMonthRow(pid){
   const sort=(S._items.length?Math.max(...S._items.map(i=>i.sort||0))+1:0);
-  const last=S._items[S._items.length-1];
-  const rec={ project_id:pid, title:'', week:(last&&last.week)||'Semana 1', format:'Estático', qty:1, has_copy:false, has_creative:false, sort };
+  // sugere a próxima semana automaticamente (Semana 1, 2, 3...)
+  const nextWeek='Semana '+(S._items.length+1);
+  const rec={ project_id:pid, title:'', description:'', week:nextWeek, format:'Estático', qty:1, has_copy:false, has_creative:false, sort };
   const { error }=await sb.from('items').insert(rec);
   if(error){ console.error(error); return toast('Erro ao adicionar'); }
   renderProject(pid);
@@ -809,12 +820,12 @@ function itemEditorHTML(it,i){
       <div class="field"><label>Hashtags (opcional)</label><input value="${esc(it.hashtags||'')}" onchange="upd('${it.id}','hashtags',this.value)" placeholder="#LogisticaIntegrada #Santos"></div>
       <div class="field"><label>Criativo</label>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-${it.id}').click()">📤 Enviar imagem</button>
-          <input type="file" id="file-${it.id}" accept="image/*" style="display:none" onchange="uploadImg('${it.id}',this)">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-${it.id}').click()">📤 Enviar imagem ou vídeo</button>
+          <input type="file" id="file-${it.id}" accept="image/*,video/*" style="display:none" onchange="uploadImg('${it.id}',this)">
           <span style="font-size:12px;color:var(--ink-faint)">ou</span>
-          <input value="${esc(it.creative_url||'')}" onchange="upd('${it.id}','creative_url',this.value);refreshPrev('${it.id}',this.value)" placeholder="cole uma URL de imagem" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+          <input value="${esc(it.creative_url||'')}" onchange="upd('${it.id}','creative_url',this.value);refreshPrev('${it.id}',this.value)" placeholder="cole uma URL de imagem ou vídeo" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
           ${src?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearImg('${it.id}')">Remover</button>`:''}</div>
-        <div class="creative-prev" id="prev-${it.id}">${src?`<img src="${esc(src)}">`:'<div class="none">Sem criativo. Envie uma imagem, cole uma URL, ou deixe vazio se ainda em produção.</div>'}</div></div>
+        <div class="creative-prev" id="prev-${it.id}">${src?creativeMediaHTML(it):'<div class="none">Sem criativo. Envie uma imagem ou vídeo (reels), cole uma URL, ou deixe vazio se ainda em produção.</div>'}</div></div>
     </div></div>`;
 }
 
@@ -855,7 +866,7 @@ function delProject(id,clientId){
 }
 async function dupItem(id){
   const it=S._items.find(x=>x.id===id); if(!it)return;
-  const rec={ project_id:it.project_id, title:(it.title||'')+' (cópia)', platforms:it.platforms, format:it.format, angle:it.angle, has_copy:it.has_copy, has_creative:it.has_creative, copy:it.copy, hashtags:it.hashtags, creative_url:it.creative_url, sort:(it.sort||0)+1 };
+  const rec={ project_id:it.project_id, title:(it.title||'')+' (cópia)', platforms:it.platforms, format:it.format, angle:it.angle, has_copy:it.has_copy, has_creative:it.has_creative, copy:it.copy, hashtags:it.hashtags, creative_url:it.creative_url, creative_type:it.creative_type, sort:(it.sort||0)+1 };
   await sb.from('items').insert(rec); renderProject(S.projectId); toast('Item duplicado');
 }
 async function moveItem(id,dir){
@@ -866,13 +877,37 @@ async function moveItem(id,dir){
   await sb.from('items').update({sort:a.sort}).eq('id',b.id);
   renderProject(S.projectId);
 }
-function refreshPrev(id,url){ const el=$('prev-'+id); if(el) el.innerHTML=url?`<img src="${esc(url)}">`:'<div class="none">Sem criativo.</div>'; }
-async function clearImg(id){ await sb.from('items').update({creative_url:null}).eq('id',id); renderProject(S.projectId); }
+function refreshPrev(id,url){ const el=$('prev-'+id); if(!el)return;
+  if(!url){ el.innerHTML='<div class="none">Sem criativo.</div>'; return; }
+  const isVid=/\.(mp4|mov|webm|m4v|ogg)$/.test(url.toLowerCase().split('?')[0]);
+  el.innerHTML=isVid?`<video src="${esc(url)}" controls playsinline style="width:100%;max-height:360px;background:#000"></video>`:`<img src="${esc(url)}">`;
+}
+async function clearImg(id){ await sb.from('items').update({creative_url:null,creative_type:null}).eq('id',id); renderProject(S.projectId); }
 
 /* upload p/ Supabase Storage */
 function uploadImg(id,input){
   const f=input.files&&input.files[0]; if(!f)return;
-  if(!f.type.startsWith('image/')) return toast('Selecione uma imagem');
+  const isVideo=f.type.startsWith('video/');
+  const isImage=f.type.startsWith('image/');
+  if(!isVideo&&!isImage) return toast('Selecione uma imagem ou vídeo');
+
+  if(isVideo){
+    // limite de segurança pro plano free do Storage
+    const MB=f.size/1048576;
+    if(MB>50) return toast('Vídeo muito grande ('+MB.toFixed(0)+'MB). Máx. 50MB — comprima ou use uma URL.');
+    toast('Enviando vídeo… pode levar alguns segundos');
+    (async()=>{
+      const ext=(f.name.split('.').pop()||'mp4').toLowerCase().replace(/[^a-z0-9]/g,'')||'mp4';
+      const path=S.projectId+'/'+id+'-'+Date.now()+'.'+ext;
+      const { error }=await sb.storage.from(CFG.bucket).upload(path,f,{contentType:f.type,upsert:true});
+      if(error){ console.error(error); return toast('Erro no upload: '+error.message); }
+      const { data:pub }=sb.storage.from(CFG.bucket).getPublicUrl(path);
+      await sb.from('items').update({creative_url:pub.publicUrl,creative_type:'video'}).eq('id',id);
+      renderProject(S.projectId); toast('Vídeo adicionado');
+    })();
+    return;
+  }
+
   toast('Enviando imagem…');
   const r=new FileReader();
   r.onload=e=>{
@@ -888,13 +923,24 @@ function uploadImg(id,input){
         const { error }=await sb.storage.from(CFG.bucket).upload(path,blob,{contentType:'image/jpeg',upsert:true});
         if(error){ console.error(error); return toast('Erro no upload: '+error.message); }
         const { data:pub }=sb.storage.from(CFG.bucket).getPublicUrl(path);
-        await sb.from('items').update({creative_url:pub.publicUrl}).eq('id',id);
+        await sb.from('items').update({creative_url:pub.publicUrl,creative_type:'image'}).eq('id',id);
         renderProject(S.projectId); toast('Imagem adicionada');
       },'image/jpeg',0.85);
     };
     img.src=e.target.result;
   };
   r.readAsDataURL(f);
+}
+/* detecta se a URL é vídeo (por extensão) quando creative_type não está definido */
+function isVideoCreative(it){
+  if(it.creative_type) return it.creative_type==='video';
+  const u=(it.creative_url||'').toLowerCase().split('?')[0];
+  return /\.(mp4|mov|webm|m4v|ogg)$/.test(u);
+}
+function creativeMediaHTML(it){
+  const src=it.creative_url||''; if(!src) return '';
+  if(isVideoCreative(it)) return `<video src="${esc(src)}" controls playsinline style="width:100%;max-height:360px;display:block;background:#000"></video>`;
+  return `<img src="${esc(src)}">`;
 }
 
 /* publicar */
@@ -929,6 +975,7 @@ async function drawTracking(projectId){
     const rows=(items||[]).map((it,i)=>`<div class="track-row"><div class="track-num">${i+1}</div><div class="track-info">
         <div class="tt">${esc(it.week||'')} · ${esc(it.format||'')} · ${it.qty!=null?it.qty+' post(s)':''}</div>
         <div class="track-line">${esc(it.title||'(tema)')}</div>
+        ${it.description&&it.description.trim()?`<div class="track-line" style="color:var(--ink-faint);font-size:12px">${esc(it.description)}</div>`:''}
         ${it.note&&it.note.trim()?`<div class="track-note">↳ obs do cliente: "${esc(it.note)}"</div>`:''}</div></div>`).join('');
     const body=`
       <div class="page-head"><div>
@@ -1135,23 +1182,25 @@ function renderClientMonthly(c,p,items,picker){
   // esconde barra de progresso de itens (não se aplica)
   const sub=document.querySelector('.c-sub'); if(sub) sub.style.display='none';
   const st=p.month_status;
-  const rows=items.map((it,i)=>`<tr>
-      <td><span class="pnum" style="background:${accent}">${i+1}</span></td>
-      <td style="font-weight:600">${esc(it.week||'')}</td>
-      <td>${it.format?`<span class="chip chip-ink">${esc(it.format)}</span>`:'—'}</td>
-      <td style="text-align:center">${it.qty!=null?it.qty:'—'}</td>
-      <td><strong>${esc(it.title||'(tema)')}</strong>
-        <div style="margin-top:7px"><input value="${esc(it.note||'')}" onchange="saveMonthNote('${it.id}',this.value)" placeholder="✏️ observação ou ajuste neste tema (opcional)" style="width:100%;padding:8px 10px;border:1px dashed var(--line);border-radius:7px;font-size:12.5px;background:#fff"></div></td></tr>`).join('');
+  const cards=items.map((it,i)=>`<div class="post-card">
+      <div class="post-head">
+        <span class="pnum" style="background:${accent}">${i+1}</span>
+        <div class="pinfo"><h3>${esc(it.week||'')}${it.title?' · '+esc(it.title):''}</h3>
+          <p>${it.format?esc(it.format):''}${it.qty!=null?' · '+it.qty+' post(s)':''}</p></div>
+      </div>
+      ${it.description&&it.description.trim()?`<div class="blk"><div class="copy-block" style="border-left-color:${accent}"><p>${esc(it.description)}</p></div></div>`:''}
+      <div class="blk" style="border-top:1px solid var(--line-soft)">
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);display:block;margin-bottom:7px">✏️ Sua observação neste item (opcional)</label>
+        <textarea onchange="saveMonthNote('${it.id}',this.value)" placeholder="Quer ajustar algo neste tema? Escreva aqui." style="width:100%;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;font-size:13.5px;min-height:54px;resize:vertical;background:#fff">${esc(it.note||'')}</textarea></div>
+    </div>`).join('');
   const totalPosts=items.reduce((s,it)=>s+(it.qty||0),0);
 
   document.querySelector('.c-wrap').innerHTML=`
     ${picker}
     <div class="secbar"><div class="ico" style="background:${accent}">🗓️</div><h3>Planejamento do mês</h3></div>
-    <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 16px">Veja o que está planejado para o mês. Se quiser ajustar algum tema, escreva na observação ao lado. No fim, aprove o plano ou peça revisão.</p>
-    <div class="tcard" style="margin-bottom:8px"><table>
-      <thead style="background:${accent}"><tr><th>#</th><th>Semana</th><th>Formato</th><th>Qtd</th><th>Tema / observação</th></tr></thead>
-      <tbody>${rows||'<tr><td colspan="5" style="text-align:center;padding:26px;color:var(--ink-faint)">Sem linhas.</td></tr>'}</tbody></table></div>
-    <p style="font-size:12.5px;color:var(--ink-faint);text-align:right;margin-bottom:20px">Total planejado: <b>${totalPosts} posts</b> no mês</p>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Veja o que está planejado para o mês. Se quiser ajustar algo, escreva na observação do item. No fim, aprove o plano ou peça revisão.</p>
+    ${cards||'<div class="empty"><p>Sem itens no planejamento.</p></div>'}
+    <p style="font-size:12.5px;color:var(--ink-faint);text-align:right;margin:4px 0 20px">Total planejado: <b>${totalPosts} posts</b> no mês</p>
 
     <div class="send-block"><div class="send-inner">
       <div class="si">🗓️</div><h2>Aprovação do mês</h2>
@@ -1204,7 +1253,7 @@ function clientCardHTML(it,i,dm,c){
     ${approveBoxHTML(it.id,'copy','Aprovação da Copy',dm)}</div>`); }
   if(it.has_creative){ const src=it.creative_url||'';
     blocks.push(`<div class="blk"><div class="blk-label"><span class="chip chip-ink">🎨 Criativo</span></div>
-    <div class="creative-prev">${src?`<img src="${esc(src)}">`:'<div class="none">Criativo em produção. Será incluído quando finalizado.</div>'}</div>
+    <div class="creative-prev">${src?creativeMediaHTML(it):'<div class="none">Criativo em produção. Será incluído quando finalizado.</div>'}</div>
     ${approveBoxHTML(it.id,'creative','Aprovação do Criativo',dm)}</div>`); }
   return `<div class="post-card"><div class="post-head"><span class="pnum" style="background:${accent}">${i+1}</span>
     <div class="pinfo"><h3>${esc(it.title||'Item '+(i+1))}</h3><p>${(it.platforms||[]).join(' · ')||''}${it.format?' · '+esc(it.format):''}${it.angle?' · '+esc(it.angle):''}</p></div></div>${blocks.join('')}</div>`;
@@ -1277,7 +1326,7 @@ function buildClientText(){
     const name=(S._mSender||p.month_sender||'').trim()||'—';
     const stt=p.month_status==='approved'?'✅ MÊS APROVADO':p.month_status==='rejected'?'❌ REVISÃO SOLICITADA':'⏳ PENDENTE';
     let t=`🗓️ *APROVAÇÃO DO MÊS — ${c.name}*\nPlanejamento: ${p.title} (${p.period||''})\nResponsável: ${name}\nStatus: ${stt}\nData: ${nowStr()}\n${'─'.repeat(38)}\n\n`;
-    S.cItems.forEach((it,i)=>{ t+=`${i+1}. [${it.week||''}] ${it.format||''} · ${it.qty!=null?it.qty+' post(s)':''} — ${it.title||'(tema)'}`; if(it.note)t+=`\n   ✏️ obs: "${it.note}"`; t+='\n'; });
+    S.cItems.forEach((it,i)=>{ t+=`${i+1}. [${it.week||''}] ${it.format||''} · ${it.qty!=null?it.qty+' post(s)':''} — ${it.title||'(tema)'}`; if(it.description&&it.description.trim())t+=`\n   ${it.description.trim()}`; if(it.note)t+=`\n   ✏️ obs: "${it.note}"`; t+='\n'; });
     t+=`\n${'─'.repeat(38)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
     return t;
   }
