@@ -764,37 +764,88 @@ async function renderProject(projectId){
 /* ---------- editor MENSAL (planejamento) ---------- */
 const FORMATS=['Estático','Carrossel','Reels','Story'];
 function monthlyEditorBody(p,items){
-  const cards=items.map((it,i)=>`<div class="item-ed">
-    <div class="item-ed-head">
-      <span class="pnum">${i+1}</span>
-      <input value="${esc(it.week||'')}" onchange="upd('${it.id}','week',this.value)" placeholder="Semana 1" style="width:120px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-weight:600">
-      <select onchange="upd('${it.id}','format',this.value)" style="width:140px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px">${['',...FORMATS].map(f=>`<option ${it.format===f?'selected':''} value="${f}">${f||'Formato'}</option>`).join('')}</select>
-      <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--ink-soft)">Qtd</span><input type="number" min="0" value="${it.qty!=null?it.qty:''}" onchange="upd('${it.id}','qty',this.value?parseInt(this.value):null)" placeholder="0" style="width:56px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px"></div>
+  // items vêm ordenados por sort; agrupa: cada 'week' inicia um grupo, 'post' pertence à semana anterior
+  let html='', curWeek=null, weekPosts=[];
+  const flush=()=>{
+    if(!curWeek) return;
+    html+=weekBlockHTML(curWeek, weekPosts, p.id);
+    weekPosts=[];
+  };
+  items.forEach(it=>{
+    if(it.row_type==='week'){ flush(); curWeek=it; }
+    else { weekPosts.push(it); }
+  });
+  flush();
+  return `
+    <div class="secbar"><div class="ico">🗓️</div><h3>Planejamento do mês</h3><div class="spacer"></div>
+      <button class="btn btn-accent btn-sm" onclick="addWeek('${p.id}')">＋ Nova semana</button></div>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 16px">Crie as semanas e, dentro de cada uma, adicione os posts (formato, tema, descrição e data). O cliente aprova o mês inteiro e pode comentar em cada post.</p>
+    ${html||`<div class="empty"><div class="em">🗓️</div><h3>Sem semanas</h3><p>Comece criando a primeira semana do mês.</p><br><button class="btn btn-accent" onclick="addWeek('${p.id}')">＋ Nova semana</button></div>`}
+    ${items.length?`<div style="text-align:center;margin-top:18px"><button class="btn btn-ghost" onclick="addWeek('${p.id}')">＋ Nova semana</button></div>`:''}`;
+}
+function weekBlockHTML(week, posts, pid){
+  const postsHTML = posts.map((it,i)=>`<div class="item-ed" style="margin:0 0 10px">
+    <div class="item-ed-head" style="background:#fff">
+      <span class="pnum" style="background:var(--ink-soft)">${i+1}</span>
+      <select onchange="upd('${it.id}','format',this.value)" style="width:130px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-weight:600">${FORMATS.map(f=>`<option ${it.format===f?'selected':''} value="${f}">${f}</option>`).join('')}</select>
+      <input value="${esc(it.post_date||'')}" onchange="upd('${it.id}','post_date',this.value)" placeholder="Data (ex.: 03/06)" style="width:120px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px">
       <div class="spacer" style="flex:1"></div>
       <button class="icon-btn" title="Subir" onclick="moveItem('${it.id}',-1)">↑</button>
       <button class="icon-btn" title="Descer" onclick="moveItem('${it.id}',1)">↓</button>
-      <button class="icon-btn" style="color:var(--red)" title="Excluir" onclick="delItem('${it.id}')">🗑</button>
+      <button class="icon-btn" style="color:var(--red)" title="Excluir post" onclick="delItem('${it.id}')">🗑</button>
     </div>
     <div class="item-ed-body">
-      <div class="field" style="margin-bottom:11px"><label>Tema do conteúdo</label>
+      <div class="field" style="margin-bottom:10px"><label>Tema do post</label>
         <input value="${esc(it.title||'')}" onchange="upd('${it.id}','title',this.value)" placeholder="Ex.: Os 3 erros mais comuns na logística" style="font-weight:600"></div>
-      <div class="field" style="margin-bottom:0"><label>Descrição / detalhamento (opcional)</label>
-        <textarea onchange="upd('${it.id}','description',this.value)" placeholder="Descreva a ideia do post, o que vai em cada card do carrossel, roteiro do reels, referências…" style="min-height:90px">${esc(it.description||'')}</textarea></div>
+      <div class="field" style="margin-bottom:0"><label>Descrição / detalhamento</label>
+        <textarea onchange="upd('${it.id}','description',this.value)" placeholder="Ideia do post, o que vai em cada card do carrossel, roteiro do reels, referências…" style="min-height:80px">${esc(it.description||'')}</textarea></div>
     </div></div>`).join('');
-  return `
-    <div class="secbar"><div class="ico">🗓️</div><h3>Planejamento do mês</h3><div class="spacer"></div><button class="btn btn-ghost btn-sm" onclick="addMonthRow('${p.id}')">＋ Adicionar linha</button></div>
-    <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 16px">Por semana: formato, quantos posts, o tema e — se quiser — uma descrição mais detalhada (roteiro, cards do carrossel, ideia). O cliente aprova o mês e pode comentar em cada item.</p>
-    ${cards||`<div class="empty"><div class="em">🗓️</div><h3>Sem linhas</h3><p>Adicione a primeira semana do planejamento.</p><br><button class="btn btn-accent" onclick="addMonthRow('${p.id}')">＋ Adicionar linha</button></div>`}
-    ${items.length?`<div style="text-align:center;margin-top:16px"><button class="btn btn-ghost" onclick="addMonthRow('${p.id}')">＋ Adicionar linha</button></div>`:''}`;
+  return `<div style="border:1px solid var(--line);border-radius:var(--r);background:var(--line-soft);padding:16px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:18px">🗂️</span>
+      <input value="${esc(week.title||week.week||'')}" onchange="upd('${week.id}','title',this.value)" placeholder="Semana 1" style="font-size:16px;font-weight:700;border:none;background:transparent;flex:1;min-width:0;padding:4px 0;border-bottom:2px solid transparent" onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='transparent'">
+      <span class="chip chip-ink">${posts.length} post${posts.length!==1?'s':''}</span>
+      <button class="icon-btn" title="Mover semana acima" onclick="moveItem('${week.id}',-1)">↑</button>
+      <button class="icon-btn" title="Mover semana abaixo" onclick="moveItem('${week.id}',1)">↓</button>
+      <button class="icon-btn" style="color:var(--red)" title="Excluir semana e seus posts" onclick="delWeek('${week.id}')">🗑</button>
+    </div>
+    ${postsHTML||'<p style="font-size:13px;color:var(--ink-faint);padding:4px 0 12px">Nenhum post nesta semana ainda.</p>'}
+    <button class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="addPost('${pid}','${week.id}')">＋ Adicionar post nesta semana</button>
+  </div>`;
 }
-async function addMonthRow(pid){
+async function addWeek(pid){
   const sort=(S._items.length?Math.max(...S._items.map(i=>i.sort||0))+1:0);
-  // sugere a próxima semana automaticamente (Semana 1, 2, 3...)
-  const nextWeek='Semana '+(S._items.length+1);
-  const rec={ project_id:pid, title:'', description:'', week:nextWeek, format:'Estático', qty:1, has_copy:false, has_creative:false, sort };
+  const weekNum=S._items.filter(i=>i.row_type==='week').length+1;
+  const rec={ project_id:pid, row_type:'week', title:'Semana '+weekNum, has_copy:false, has_creative:false, sort };
   const { error }=await sb.from('items').insert(rec);
-  if(error){ console.error(error); return toast('Erro ao adicionar'); }
+  if(error){ console.error(error); return toast('Erro ao criar semana'); }
   renderProject(pid);
+}
+async function addPost(pid, weekId){
+  // novo post entra logo após o último item da semana (mantém agrupamento por sort)
+  const week=S._items.find(i=>i.id===weekId);
+  // acha o maior sort entre a semana e seus posts até a próxima semana
+  const sorted=S._items.slice().sort((a,b)=>(a.sort||0)-(b.sort||0));
+  const wIdx=sorted.findIndex(i=>i.id===weekId);
+  let insertSort=(week.sort||0)+1;
+  for(let k=wIdx+1;k<sorted.length;k++){ if(sorted[k].row_type==='week') break; insertSort=(sorted[k].sort||0)+1; }
+  // abre espaço: empurra itens com sort >= insertSort
+  for(const it of S._items){ if((it.sort||0)>=insertSort){ await sb.from('items').update({sort:(it.sort||0)+1}).eq('id',it.id); } }
+  const rec={ project_id:pid, row_type:'post', title:'', description:'', format:'Estático', post_date:'', has_copy:false, has_creative:false, sort:insertSort };
+  const { error }=await sb.from('items').insert(rec);
+  if(error){ console.error(error); return toast('Erro ao adicionar post'); }
+  renderProject(pid);
+}
+function delWeek(weekId){
+  // descobre os posts da semana (entre ela e a próxima semana) para excluir junto
+  const sorted=S._items.slice().sort((a,b)=>(a.sort||0)-(b.sort||0));
+  const wIdx=sorted.findIndex(i=>i.id===weekId);
+  const toDel=[weekId];
+  for(let k=wIdx+1;k<sorted.length;k++){ if(sorted[k].row_type==='week') break; toDel.push(sorted[k].id); }
+  confirmDialog('Excluir semana?',`Remove esta semana e <b>${toDel.length-1} post(s)</b> dentro dela.`,async()=>{
+    for(const id of toDel){ await sb.from('items').delete().eq('id',id); }
+    renderProject(S.projectId);
+  },true);
 }
 
 function itemEditorHTML(it,i){
@@ -972,12 +1023,20 @@ async function drawTracking(projectId){
   if(p.mode==='mensal'){
     const stt=p.month_status;
     const badge=stt==='approved'?'<span class="sb approved">✓ Mês aprovado</span>':stt==='rejected'?'<span class="sb rejected">✕ Revisão solicitada</span>':'<span class="sb pending">○ Aguardando aprovação</span>';
-    const withNotes=(items||[]).filter(it=>it.note&&it.note.trim());
-    const rows=(items||[]).map((it,i)=>`<div class="track-row"><div class="track-num">${i+1}</div><div class="track-info">
-        <div class="tt">${esc(it.week||'')} · ${esc(it.format||'')} · ${it.qty!=null?it.qty+' post(s)':''}</div>
-        <div class="track-line">${esc(it.title||'(tema)')}</div>
-        ${it.description&&it.description.trim()?`<div class="track-line" style="color:var(--ink-faint);font-size:12px">${esc(it.description)}</div>`:''}
-        ${it.note&&it.note.trim()?`<div class="track-note">↳ obs do cliente: "${esc(it.note)}"</div>`:''}</div></div>`).join('');
+    const withNotes=(items||[]).filter(it=>it.row_type!=='week'&&it.note&&it.note.trim());
+    let rows='', cw=null, cnt=0;
+    (items||[]).forEach(it=>{
+      if(it.row_type==='week'){
+        rows+=`<div style="display:flex;align-items:center;gap:9px;padding:14px 0 8px;border-bottom:1px solid var(--line)"><span style="font-size:15px">🗂️</span><b style="font-size:14.5px">${esc(it.title||it.week||'Semana')}</b></div>`;
+        cnt=0;
+      } else {
+        cnt++;
+        rows+=`<div class="track-row"><div class="track-num">${cnt}</div><div class="track-info">
+          <div class="tt">${esc(it.title||'(tema)')} <span style="font-weight:500;color:var(--ink-soft)">· ${esc(it.format||'')}${it.post_date?' · 📅 '+esc(it.post_date):''}</span></div>
+          ${it.description&&it.description.trim()?`<div class="track-line" style="color:var(--ink-faint);font-size:12px">${esc(it.description)}</div>`:''}
+          ${it.note&&it.note.trim()?`<div class="track-note">↳ comentário do cliente: "${esc(it.note)}"</div>`:''}</div></div>`;
+      }
+    });
     const body=`
       <div class="page-head"><div>
         <div class="crumb"><a onclick="renderClientPage('${c.id}')">${esc(c.name)}</a> / <a onclick="renderProject('${p.id}')">${esc(p.title)}</a> / <b>Respostas</b></div>
@@ -1192,25 +1251,37 @@ function renderClientMonthly(c,p,items,picker){
   // esconde barra de progresso de itens (não se aplica)
   const sub=document.querySelector('.c-sub'); if(sub) sub.style.display='none';
   const st=p.month_status;
-  const cards=items.map((it,i)=>`<div class="post-card">
-      <div class="post-head">
-        <span class="pnum" style="background:${accent}">${i+1}</span>
-        <div class="pinfo"><h3>${esc(it.week||'')}${it.title?' · '+esc(it.title):''}</h3>
-          <p>${it.format?esc(it.format):''}${it.qty!=null?' · '+it.qty+' post(s)':''}</p></div>
-      </div>
+  // agrupa por semana
+  let groupsHTML='', curWeek=null, wPosts=[], totalPosts=0;
+  const fmtChip=(f)=> f?`<span class="chip chip-ink">${esc(f)}</span>`:'';
+  const flushG=()=>{
+    if(!curWeek) return;
+    const postsHTML=wPosts.map((it,i)=>`<div class="post-card" style="margin-bottom:14px">
+      <div class="post-head"><span class="pnum" style="background:${accent}">${i+1}</span>
+        <div class="pinfo"><h3>${esc(it.title||'Post '+(i+1))}</h3>
+          <p>${fmtChip(it.format)} ${it.post_date?'· 📅 '+esc(it.post_date):''}</p></div></div>
       ${it.description&&it.description.trim()?`<div class="blk"><div class="copy-block" style="border-left-color:${accent}"><p>${esc(it.description)}</p></div></div>`:''}
       <div class="blk" style="border-top:1px solid var(--line-soft)">
-        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);display:block;margin-bottom:7px">✏️ Sua observação neste item (opcional)</label>
-        <textarea onchange="saveMonthNote('${it.id}',this.value)" placeholder="Quer ajustar algo neste tema? Escreva aqui." style="width:100%;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;font-size:13.5px;min-height:54px;resize:vertical;background:#fff">${esc(it.note||'')}</textarea></div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);display:block;margin-bottom:7px">✏️ Comentário neste post (opcional)</label>
+        <textarea onchange="saveMonthNote('${it.id}',this.value)" placeholder="Quer ajustar algo? Escreva aqui." style="width:100%;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;font-size:13.5px;min-height:50px;resize:vertical;background:#fff">${esc(it.note||'')}</textarea></div>
     </div>`).join('');
-  const totalPosts=items.reduce((s,it)=>s+(it.qty||0),0);
+    groupsHTML+=`<div style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div class="ico" style="width:32px;height:32px;border-radius:9px;background:${accent};color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px">🗂️</div>
+        <h3 style="font-size:17px;font-weight:700">${esc(curWeek.title||curWeek.week||'Semana')}</h3>
+        <span class="chip chip-ink">${wPosts.length} post${wPosts.length!==1?'s':''}</span></div>
+      ${postsHTML||'<p style="font-size:13px;color:var(--ink-faint);margin-bottom:14px">Sem posts nesta semana.</p>'}</div>`;
+    wPosts=[];
+  };
+  items.forEach(it=>{ if(it.row_type==='week'){ flushG(); curWeek=it; } else { wPosts.push(it); totalPosts++; } });
+  flushG();
 
   document.querySelector('.c-wrap').innerHTML=`
     ${picker}
     <div class="secbar"><div class="ico" style="background:${accent}">🗓️</div><h3>Planejamento do mês</h3></div>
-    <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Veja o que está planejado para o mês. Se quiser ajustar algo, escreva na observação do item. No fim, aprove o plano ou peça revisão.</p>
-    ${cards||'<div class="empty"><p>Sem itens no planejamento.</p></div>'}
-    <p style="font-size:12.5px;color:var(--ink-faint);text-align:right;margin:4px 0 20px">Total planejado: <b>${totalPosts} posts</b> no mês</p>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Veja o planejamento do mês, semana a semana. Se quiser ajustar algo, comente no post. No fim, aprove o plano ou peça revisão.</p>
+    ${groupsHTML||'<div class="empty"><p>Planejamento ainda em montagem.</p></div>'}
+    <p style="font-size:12.5px;color:var(--ink-faint);text-align:right;margin:4px 0 20px">Total: <b>${totalPosts} posts</b> no mês</p>
 
     <div class="send-block"><div class="send-inner">
       <div class="si">🗓️</div><h2>Aprovação do mês</h2>
@@ -1334,7 +1405,7 @@ function buildClientText(){
     const name=(S._mSender||p.month_sender||'').trim()||'—';
     const stt=p.month_status==='approved'?'✅ MÊS APROVADO':p.month_status==='rejected'?'❌ REVISÃO SOLICITADA':'⏳ PENDENTE';
     let t=`🗓️ *APROVAÇÃO DO MÊS — ${c.name}*\nPlanejamento: ${p.title} (${p.period||''})\nResponsável: ${name}\nStatus: ${stt}\nData: ${nowStr()}\n${'─'.repeat(38)}\n\n`;
-    S.cItems.forEach((it,i)=>{ t+=`${i+1}. [${it.week||''}] ${it.format||''} · ${it.qty!=null?it.qty+' post(s)':''} — ${it.title||'(tema)'}`; if(it.description&&it.description.trim())t+=`\n   ${it.description.trim()}`; if(it.note)t+=`\n   ✏️ obs: "${it.note}"`; t+='\n'; });
+    S.cItems.forEach((it)=>{ if(it.row_type==='week'){ t+=`\n🗂️ ${it.title||it.week||'Semana'}\n`; } else { t+=`  • ${it.format||''}${it.post_date?' ('+it.post_date+')':''} — ${it.title||'(tema)'}`; if(it.note)t+=`\n    ✏️ "${it.note}"`; t+='\n'; } });
     t+=`\n${'─'.repeat(38)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
     return t;
   }
