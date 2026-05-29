@@ -1163,17 +1163,26 @@ async function renderClientView(){
     <div class="secbar"><div class="ico" style="background:${c.color}">📸</div><h3>Itens para aprovação</h3></div>
     <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Aprove cada item ou marque <b>reprovar</b> e descreva o ajuste.</p>
     ${cards||'<div class="empty"><p>Nenhum item disponível.</p></div>'}
-    <div class="send-block"><div class="send-inner"><div class="si">📤</div><h2>Enviar aprovação</h2>
-      <p>Suas respostas são salvas automaticamente. Ao final, confirme seu nome e avise a agência.</p>
+    <div class="send-block"><div class="send-inner"><div class="si">📤</div><h2>Finalizar aprovação</h2>
+      <p>Suas respostas são salvas automaticamente. Confirme seu nome e clique em enviar para concluir.</p>
       <div class="namewrap"><label>Seu nome</label><input id="cSender" placeholder="Quem está aprovando?" value="${esc(sender||'')}" onchange="saveSender(this.value)"></div>
       <div class="send-alert" id="cAlert"></div>
       <div class="send-btns">
-        <button class="btn btn-wa" onclick="cliWhatsapp()">📲 Avisar no WhatsApp</button>
-        <button class="btn btn-primary" onclick="cliEmail()">✉️ Enviar por e-mail</button>
-        <button class="btn btn-ghost" onclick="copyText(buildClientText(),'Resumo copiado!')">📋 Copiar resumo</button>
-        <button class="btn btn-ghost no-print" onclick="window.print()">🖨️ PDF</button></div></div></div>
+        <button class="btn btn-accent" style="padding:13px 36px;font-size:15px" onclick="finalizarEnvio()">✓ Enviar para a agência</button></div>
+      </div></div>
     <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
   drawClientSchedule(); updateClientProgress();
+}
+async function finalizarEnvio(){
+  const nm=$('cSender')&&$('cSender').value.trim();
+  if(!nm) return toast('Por favor, informe seu nome antes de enviar');
+  // garante que o nome está salvo nas respostas
+  await syncSender(nm); S.cSender=nm;
+  // marca o envio no projeto (pra agência ver que foi finalizado)
+  try{ await sb.from('projects').update({month_sender:nm, month_ts:new Date().toISOString()}).eq('id',S.cActiveProj); }catch(e){}
+  const sub=document.querySelector('.send-inner');
+  if(sub){ sub.innerHTML=`<div class="si">✅</div><h2>Aprovação enviada!</h2><p style="max-width:420px;margin:8px auto 0">Tudo certo, ${esc(nm)}. A ${esc(CFG.agencyName)} já recebeu suas respostas e observações. Você pode fechar esta página.</p>`; }
+  toast('Aprovação enviada com sucesso!');
 }
 function switchProj(id){ S.cActiveProj=id; renderClientView(); }
 
@@ -1213,10 +1222,8 @@ function renderClientMonthly(c,p,items,picker){
       </div>
       <div id="mStatus" style="margin-top:14px;font-size:13px;font-weight:600;color:${st==='approved'?'var(--green)':st==='rejected'?'var(--red)':'var(--ink-faint)'}">
         ${st==='approved'?'✓ Mês aprovado'+(p.month_ts?' em '+esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):''):st==='rejected'?'✕ Revisão solicitada'+(p.month_ts?' em '+esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):''):'Aguardando sua avaliação'}</div>
-      <div class="send-btns" style="margin-top:18px">
-        <button class="btn btn-wa" onclick="cliWhatsapp()">📲 Avisar no WhatsApp</button>
-        <button class="btn btn-primary" onclick="cliEmail()">✉️ Enviar por e-mail</button>
-        <button class="btn btn-ghost no-print" onclick="window.print()">🖨️ PDF</button></div></div></div>
+      <p style="font-size:12.5px;color:var(--ink-faint);margin-top:12px">Sua resposta e observações chegam automaticamente à ${esc(CFG.agencyName)}.</p>
+      </div></div>
     <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
   S._mSender=p.month_sender||'';
 }
@@ -1249,13 +1256,13 @@ function shade(hex){ try{ const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g
 
 function clientCardHTML(it,i,dm,c){
   const accent=c.color; const blocks=[];
-  if(it.has_copy){ blocks.push(`<div class="blk"><div class="blk-label"><span class="chip chip-accent">✍️ Copy</span></div>
-    <div class="copy-block" style="border-left-color:${accent}"><p>${esc(it.copy||'(sem texto)')}</p>${it.hashtags?`<p class="tags" style="color:${shade(accent)}">${esc(it.hashtags)}</p>`:''}</div>
-    ${approveBoxHTML(it.id,'copy','Aprovação da Copy',dm)}</div>`); }
   if(it.has_creative){ const src=it.creative_url||'';
     blocks.push(`<div class="blk"><div class="blk-label"><span class="chip chip-ink">🎨 Criativo</span></div>
     <div class="creative-prev">${src?creativeMediaHTML(it):'<div class="none">Criativo em produção. Será incluído quando finalizado.</div>'}</div>
     ${approveBoxHTML(it.id,'creative','Aprovação do Criativo',dm)}</div>`); }
+  if(it.has_copy){ blocks.push(`<div class="blk"><div class="blk-label"><span class="chip chip-accent">✍️ Copy</span></div>
+    <div class="copy-block" style="border-left-color:${accent}"><p>${esc(it.copy||'(sem texto)')}</p>${it.hashtags?`<p class="tags" style="color:${shade(accent)}">${esc(it.hashtags)}</p>`:''}</div>
+    ${approveBoxHTML(it.id,'copy','Aprovação da Copy',dm)}</div>`); }
   return `<div class="post-card"><div class="post-head"><span class="pnum" style="background:${accent}">${i+1}</span>
     <div class="pinfo"><h3>${esc(it.title||'Item '+(i+1))}</h3><p>${(it.platforms||[]).join(' · ')||''}${it.format?' · '+esc(it.format):''}${it.angle?' · '+esc(it.angle):''}</p></div></div>${blocks.join('')}</div>`;
 }
