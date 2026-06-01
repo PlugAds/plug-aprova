@@ -365,25 +365,13 @@ function renderLanding(){
   $('app').innerHTML=`
   <div class="gate"><div class="gate-card">
     <div class="logo">plug<span class="dot">.</span>aprova</div>
-    <div class="tag">APROVAÇÃO DE CONTEÚDO</div>
-    <div class="gate-tabs">
-      <button class="gate-tab active" id="tabAg" onclick="switchGate('ag')">Sou da agência</button>
-      <button class="gate-tab" id="tabCl" onclick="switchGate('cl')">Sou cliente</button>
-    </div>
-    <div id="gateAg" style="text-align:left">
-      <div class="field"><label>Senha do painel</label><input id="lgPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="tag" style="margin-bottom:26px">APROVAÇÃO DE CONTEÚDO</div>
+    <div style="text-align:left">
+      <div class="field"><label>Senha do painel</label><input id="lgPass" type="password" placeholder="••••••••" autofocus onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-primary" id="lgBtn" style="width:100%" onclick="doLogin()">Entrar no painel</button>
     </div>
-    <div id="gateCl" style="display:none;text-align:left">
-      <div class="field"><label>Código de acesso</label><input id="clCode" placeholder="cole seu código" style="letter-spacing:.04em;font-weight:600" onkeydown="if(event.key==='Enter')doClientCode()"></div>
-      <button class="btn btn-accent" style="width:100%" onclick="doClientCode()">Acessar minhas aprovações</button>
-      <p class="hint" style="text-align:center;margin-top:13px">Normalmente você entra direto pelo link enviado pela ${esc(CFG.agencyName)}. O código serve caso precise abrir manualmente.</p>
-    </div>
   </div></div>`;
-}
-function switchGate(w){
-  $('tabAg').classList.toggle('active',w==='ag'); $('tabCl').classList.toggle('active',w==='cl');
-  $('gateAg').style.display=w==='ag'?'block':'none'; $('gateCl').style.display=w==='cl'?'block':'none';
+  setTimeout(()=>{ const el=$('lgPass'); if(el) el.focus(); },60);
 }
 async function doLogin(){
   const pass=$('lgPass').value.trim(); if(!pass) return toast('Digite a senha');
@@ -396,7 +384,6 @@ async function doLogin(){
   if(data!==true){ return toast('Senha incorreta'); }
   CFG.agencyPass=pass; connectAgency(); renderDashboard();
 }
-function doClientCode(){ const c=$('clCode').value.trim(); if(c) enterClient(c); }
 
 /* ====================================================================
    SHELL DA AGÊNCIA (sidebar)
