@@ -523,7 +523,7 @@ async function renderClients(){
     const pct=total?Math.round(done/total*100):0;
     cards+=`<div class="ccard" onclick="renderClientPage('${c.id}')">
       <div class="swatch" style="background:${c.color}"></div>
-      <div class="cinit" style="background:${c.color}">${esc(c.initials||c.name.slice(0,2).toUpperCase())}</div>
+      ${clientAvatar(c,'cinit')}
       <h3>${esc(c.name)}</h3>
       <div class="meta">${projs.length} cronograma${projs.length!==1?'s':''}${c.contact?' · '+esc(c.contact):''}</div>
       <div class="minibar"><i style="width:${pct}%;background:${c.color}"></i></div>
@@ -537,15 +537,31 @@ async function renderClients(){
   shell(body);
 }
 
+function clientAvatar(c, cls, sizeStyle){
+  const initials=esc(c.initials||c.name.slice(0,2).toUpperCase());
+  if(c.logo) return `<div class="${cls}" style="${sizeStyle||''};background:${c.color};overflow:hidden"><img src="${esc(c.logo)}" style="width:100%;height:100%;object-fit:cover"></div>`;
+  return `<div class="${cls}" style="${sizeStyle||''};background:${c.color}">${initials}</div>`;
+}
 function editClient(id){
   const c=id?S.clients.find(x=>x.id===id):null;
   const color=c?c.color:PALETTE[S.clients.length%PALETTE.length];
+  S._clientLogoTmp = c?(c.logo||''):'';
   openModal(`
     <div class="modal-head"><h3>${c?'Editar':'Novo'} cliente</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
+      <div style="display:flex;align-items:center;gap:15px;margin-bottom:18px">
+        <div id="cLogoPrev" style="width:60px;height:60px;border-radius:13px;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;overflow:hidden;flex-shrink:0">
+          ${c&&c.logo?`<img src="${esc(c.logo)}" style="width:100%;height:100%;object-fit:cover">`:esc((c&&c.initials)||(c&&c.name?c.name.slice(0,2):'')||'')||'?'}</div>
+        <div>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cLogoFile').click()">📤 Enviar logo do cliente</button>
+          <input type="file" id="cLogoFile" accept="image/*" style="display:none" onchange="uploadClientLogo(this)">
+          ${c&&c.logo?`<button class="btn btn-ghost btn-sm" style="color:var(--red);margin-left:6px" onclick="removeClientLogo()">Remover</button>`:''}
+          <p class="hint" style="margin-top:6px">Se enviar, aparece no lugar das iniciais. Quadrada fica melhor.</p>
+        </div>
+      </div>
       <div class="field"><label>Nome do cliente</label><input id="cName" value="${c?esc(c.name):''}" placeholder="Ex.: DRC Logística Integrada"></div>
       <div class="row2">
-        <div class="field"><label>Iniciais (logo)</label><input id="cInit" maxlength="3" value="${c?esc(c.initials||''):''}" placeholder="DRC"></div>
+        <div class="field"><label>Iniciais (se não tiver logo)</label><input id="cInit" maxlength="3" value="${c?esc(c.initials||''):''}" placeholder="DRC"></div>
         <div class="field"><label>Contato (opcional)</label><input id="cContact" value="${c?esc(c.contact||''):''}" placeholder="Santos / SP"></div>
       </div>
       <div class="field"><label>Cor de destaque</label>
@@ -560,14 +576,32 @@ function editClient(id){
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-accent" onclick="saveClient(${c?`'${c.id}'`:'null'})">Salvar</button></div>`);
 }
-function pickColor(c){ $('cColor').value=c; document.querySelectorAll('.swcolor').forEach(b=>b.style.borderColor=(b.dataset.c===c?'var(--ink)':'transparent')); }
+function uploadClientLogo(input){
+  const f=input.files&&input.files[0]; if(!f)return;
+  if(!f.type.startsWith('image/')) return toast('Selecione uma imagem');
+  const r=new FileReader();
+  r.onload=e=>{ const img=new Image();
+    img.onload=()=>{ const sz=256; const cv=document.createElement('canvas'); cv.width=sz; cv.height=sz;
+      const ctx=cv.getContext('2d'); const m=Math.min(img.width,img.height); const sx=(img.width-m)/2, sy=(img.height-m)/2;
+      ctx.drawImage(img,sx,sy,m,m,0,0,sz,sz);
+      let data=cv.toDataURL('image/jpeg',0.85);
+      if(data.length>180000) data=cv.toDataURL('image/jpeg',0.6);
+      S._clientLogoTmp=data;
+      const prev=$('cLogoPrev'); if(prev) prev.innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;
+      toast('Logo carregada — clique em Salvar');
+    };
+    img.src=e.target.result; };
+  r.readAsDataURL(f);
+}
+function removeClientLogo(){ S._clientLogoTmp=''; const prev=$('cLogoPrev'); if(prev) prev.innerHTML=esc(($('cInit')&&$('cInit').value||$('cName')&&$('cName').value||'?').slice(0,2).toUpperCase()); toast('Logo removida — clique em Salvar'); }
+function pickColor(c){ $('cColor').value=c; document.querySelectorAll('.swcolor').forEach(b=>b.style.borderColor=(b.dataset.c===c?'var(--ink)':'transparent')); const prev=$('cLogoPrev'); if(prev&&!S._clientLogoTmp) prev.style.background=c; }
 async function saveClient(id){
   const name=$('cName').value.trim(); if(!name) return toast('Informe o nome');
-  const rec={ name, initials:($('cInit').value.trim()||name.slice(0,2)).toUpperCase(), contact:$('cContact').value.trim(), color:$('cColor').value, pin:$('cPin').value.trim()||null };
+  const rec={ name, initials:($('cInit').value.trim()||name.slice(0,2)).toUpperCase(), contact:$('cContact').value.trim(), color:$('cColor').value, pin:$('cPin').value.trim()||null, logo:S._clientLogoTmp||null };
   let res;
   if(id){ res=await sb.from('clients').update(rec).eq('id',id); }
   else { res=await sb.from('clients').insert(rec); }
-  if(res.error){ console.error(res.error); return toast('Erro ao salvar'); }
+  if(res.error){ console.error(res.error); return toast('Erro ao salvar: '+res.error.message); }
   closeModal(); toast('Cliente salvo'); renderClients();
 }
 function delClient(id){
@@ -621,7 +655,7 @@ async function renderClientPage(clientId){
   const body=`
     <div class="page-head"><div>
       <div class="crumb"><a onclick="nav('clients')">Clientes</a> / <b>${esc(c.name)}</b></div>
-      <h2 style="display:flex;align-items:center;gap:12px"><span class="cinit" style="background:${c.color};width:38px;height:38px;margin:0;font-size:15px">${esc(c.initials||c.name.slice(0,2).toUpperCase())}</span>${esc(c.name)}</h2></div>
+      <h2 style="display:flex;align-items:center;gap:12px">${clientAvatar(c,'cinit','width:38px;height:38px;margin:0;font-size:15px')}${esc(c.name)}</h2></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="showClientLink('${c.id}')">🔗 Link do cliente</button>
         <button class="btn btn-ghost" onclick="editClient('${c.id}')">Editar</button>
@@ -1161,7 +1195,7 @@ async function enterClient(token){
 }
 function clientPinGate(c){
   $('app').innerHTML=`<div class="gate"><div class="gate-card">
-    <div class="c-logo" style="margin:0 auto 16px;background:${c.color};border:none">${esc(c.initials||c.name.slice(0,2).toUpperCase())}</div>
+    ${clientAvatar(c,'c-logo','margin:0 auto 16px;border:none')}
     <div class="logo" style="font-size:22px">${esc(c.name)}</div>
     <div class="tag" style="margin-bottom:22px">APROVAÇÃO DE CONTEÚDO</div>
     <div class="field" style="text-align:left"><label>PIN de acesso</label><input id="cliPin" type="password" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')checkClientPin()"></div>
@@ -1187,7 +1221,7 @@ async function loadClientView(){
 
 function clientHeader(c,p){
   return `<div class="c-header" style="background:${c.color}"><div class="inner">
-    <div class="c-brand"><div class="c-logo">${esc(c.initials||c.name.slice(0,2).toUpperCase())}</div>
+    <div class="c-brand">${clientAvatar(c,'c-logo')}
       <div><h1>${esc(c.name)}</h1><p>Aprovação de conteúdo · ${esc(CFG.agencyName)}</p></div></div>
     ${p?`<div class="c-meta"><div>${esc(p.kind)} · <b>${esc(p.period||'')}</b></div><div>${esc(p.title)}</div></div>`:''}
   </div></div>`;
