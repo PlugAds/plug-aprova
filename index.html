@@ -1151,15 +1151,17 @@ async function drawTracking(projectId){
         <h2>Acompanhamento · Mensal</h2><p>Atualiza sozinho a cada 6s${p.month_sender?` · respondido por <b>${esc(p.month_sender)}</b>`:''}</p></div>
         <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="if(S.pollTimer)clearInterval(S.pollTimer);renderProject('${p.id}')">← Editor</button>
         <button class="btn btn-ghost" onclick="window.print()">🖨️ PDF</button></div></div>
-      <div class="tcard" style="padding:18px 21px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-        <div style="font-size:15px;font-weight:700">Status do mês:</div> ${badge}
-        ${p.month_ts?`<span style="font-size:12.5px;color:var(--ink-faint)">${esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</span>`:''}
-        <div style="flex:1"></div><div style="font-size:13px;color:var(--ink-soft)">${withNotes.length} tema(s) com observação</div></div>
-      <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem linhas.</p></div>'}</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;justify-content:flex-end">
-        ${stt?`<button class="btn btn-ghost btn-sm" onclick="clearMonthStatus('${p.id}')">↺ Limpar status (voltar p/ aguardando)</button>`:''}
-        <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-line)" onclick="clearAllResponses('${p.id}')">🗑 Limpar todas as respostas</button>
-      </div>`;
+      <div class="tcard" style="padding:18px 21px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="font-size:15px;font-weight:700">Status do mês:</div> ${badge}
+          ${p.month_ts?`<span style="font-size:12.5px;color:var(--ink-faint)">${esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</span>`:''}
+          <div style="flex:1"></div><div style="font-size:13px;color:var(--ink-soft)">${withNotes.length} tema(s) com observação</div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line-soft)">
+          <span style="font-size:12px;font-weight:700;color:var(--ink-faint);align-self:center;text-transform:uppercase;letter-spacing:.04em">Gerenciar:</span>
+          <button class="btn btn-ghost btn-sm" onclick="clearMonthStatus('${p.id}')" ${stt?'':'disabled'}>↺ Limpar status</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-line)" onclick="clearAllResponses('${p.id}')">🗑 Limpar todas as respostas</button>
+        </div></div>
+      <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem linhas.</p></div>'}</div>`;
     return shell(body);
   }
 
@@ -1182,12 +1184,12 @@ async function drawTracking(projectId){
       <div class="crumb"><a onclick="renderClientPage('${c.id}')">${esc(c.name)}</a> / <a onclick="renderProject('${p.id}')">${esc(p.title)}</a> / <b>Respostas</b></div>
       <h2>Acompanhamento</h2><p>Atualiza sozinho a cada 6s${sender?` · respondido por <b>${esc(sender)}</b>`:''}</p></div>
       <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="if(S.pollTimer)clearInterval(S.pollTimer);renderProject('${p.id}')">← Editor</button>
-      <button class="btn btn-ghost" onclick="window.print()">🖨️ PDF</button></div></div>
+      <button class="btn btn-ghost" onclick="window.print()">🖨️ PDF</button>
+      <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red-line)" onclick="clearAllResponses('${p.id}')" ${done>0?'':'disabled'}>🗑 Limpar respostas</button></div></div>
     <div class="stats">
       <div class="stat"><div class="bar" style="background:var(--accent)"></div><div class="in"><div class="lbl">PROGRESSO</div><div class="num">${pct}%</div><div class="minibar"><i style="width:${pct}%"></i></div></div></div>
       ${stat('var(--green)','APROVADOS',appr)}${stat('var(--red)','REPROVADOS',rej)}${stat('var(--amber-dot)','PENDENTES',total-done)}</div>
-    <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem itens.</p></div>'}</div>
-    ${done>0?`<div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-line)" onclick="clearAllResponses('${p.id}')">🗑 Limpar todas as respostas</button></div>`:''}`;
+    <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem itens.</p></div>'}</div>`;
   shell(body);
 }
 
