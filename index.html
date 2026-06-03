@@ -1558,32 +1558,29 @@ function buildClientText(){
   if(p.mode==='mensal'){
     const name=((($('cSenderM')&&$('cSenderM').value)||S._mSender||p.month_sender||'').trim())||'—';
     const stt=p.month_status==='approved'?'✅ MÊS APROVADO':p.month_status==='rejected'?'❌ REVISÃO SOLICITADA':'⏳ AINDA NÃO AVALIADO';
-    let t=`🗓️ *APROVAÇÃO DO MÊS — ${c.name}*\n${p.title}${p.period?' ('+p.period+')':''}\nResponsável: ${name}\nStatus: ${stt}\nData: ${nowStr()}\n${'─'.repeat(34)}\n`;
-    const ajustes=[];
+    let t=`🗓️ *APROVAÇÃO DO MÊS — ${c.name}*\n${p.title}${p.period?' ('+p.period+')':''}\nResponsável: ${name}\nStatus: ${stt}\nData: ${nowStr()}\n`;
     S.cItems.forEach((it)=>{
-      if(it.row_type==='week'){ t+=`\n🗂️ *${it.title||it.week||'Semana'}*\n`; }
+      if(it.row_type==='week'){ t+=`\n${'─'.repeat(34)}\n🗂️ *${it.title||it.week||'Semana'}*\n`; }
       else {
-        t+=`  • ${it.format||''}${it.post_date?' · '+fmtDate(it.post_date):''} — ${it.title||'(tema)'}\n`;
-        if(it.note&&it.note.trim()){ t+=`     ✏️ ${it.note.trim()}\n`; ajustes.push(`• [${it.title||'tema'}] ${it.note.trim()}`); }
+        t+=`\n*${it.title||'(tema)'}*\n${it.format||''}${it.post_date?' · '+fmtDate(it.post_date):''}\n`;
+        if(it.description&&it.description.trim()) t+=`${it.description.trim()}\n`;
+        if(it.note&&it.note.trim()) t+=`\n✏️ *Ajuste pedido:* ${it.note.trim()}\n`;
       }
     });
-    if(ajustes.length){
-      t+=`\n${'─'.repeat(34)}\n⚠️ *AJUSTES PEDIDOS (${ajustes.length})*\n`+ajustes.join('\n');
-    } else {
-      t+=`\n${'─'.repeat(34)}\n✅ Nenhum ajuste solicitado.`;
-    }
     t+=`\n${'─'.repeat(34)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
     return t;
   }
   const name=(S.cSender||'').trim()||'—';
-  let t=`📋 *APROVAÇÃO DE CONTEÚDO — ${c.name}*\n${p.title}${p.period?' ('+p.period+')':''}\nResponsável: ${name}\nData: ${nowStr()}\n${'─'.repeat(34)}\n\n`;
-  const ajustes=[];
-  S.cItems.forEach((it,i)=>{ t+=`*${i+1}. ${it.title||'Item '+(i+1)}*\n`;
-    [['copy','Copy'],['creative','Criativo']].forEach(([tp,lbl])=>{ if(!it['has_'+tp])return;
-      const d=S.cDecisions[it.id+'-'+tp]; const ic=!d?'⏳ PENDENTE':d.status==='approved'?'✅ APROVADO':'❌ REPROVADO';
-      t+=`   ${lbl}: ${ic}`; if(d&&d.status==='rejected'&&d.notes){ t+=` → "${d.notes}"`; ajustes.push(`• [${it.title||'item '+(i+1)}] ${lbl}: ${d.notes}`); } t+='\n'; }); t+='\n'; });
-  if(ajustes.length){ t+=`${'─'.repeat(34)}\n⚠️ *AJUSTES PEDIDOS (${ajustes.length})*\n`+ajustes.join('\n')+'\n'; }
-  t+=`${'─'.repeat(34)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
+  let t=`📋 *APROVAÇÃO DE CONTEÚDO — ${c.name}*\n${p.title}${p.period?' ('+p.period+')':''}\nResponsável: ${name}\nData: ${nowStr()}\n`;
+  S.cItems.forEach((it,i)=>{ t+=`\n${'─'.repeat(34)}\n*${i+1}. ${it.title||'Item '+(i+1)}*\n${(it.platforms||[]).join(' · ')||''}${it.format?' · '+it.format:''}\n`;
+    if(it.has_copy){ const d=S.cDecisions[it.id+'-copy']; const ic=!d?'⏳ PENDENTE':d.status==='approved'?'✅ APROVADO':'❌ REPROVADO';
+      t+=`\n✍️ *Copy* — ${ic}\n${it.copy||'(sem texto)'}\n`; if(it.hashtags)t+=`${it.hashtags}\n`;
+      if(d&&d.status==='rejected'&&d.notes)t+=`✏️ *Ajuste pedido:* ${d.notes}\n`; }
+    if(it.has_creative){ const d=S.cDecisions[it.id+'-creative']; const ic=!d?'⏳ PENDENTE':d.status==='approved'?'✅ APROVADO':'❌ REPROVADO';
+      t+=`\n🎨 *Criativo* — ${ic}\n`; if(it.creative_url)t+=`${it.creative_url}\n`;
+      if(d&&d.status==='rejected'&&d.notes)t+=`✏️ *Ajuste pedido:* ${d.notes}\n`; }
+  });
+  t+=`\n${'─'.repeat(34)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
   return t;
 }
 async function agencyContact(){ const {data}=await sb.from('agency').select('whatsapp,email').eq('id',1).maybeSingle(); return data||{}; }
