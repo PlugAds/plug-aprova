@@ -1142,7 +1142,7 @@ async function drawTracking(projectId){
         rows+=`<div class="track-row"><div class="track-num">${cnt}</div><div class="track-info">
           <div class="tt">${esc(it.title||'(tema)')} <span style="font-weight:500;color:var(--ink-soft)">· ${esc(it.format||'')}${it.post_date?' · 📅 '+esc(fmtDate(it.post_date)):''}</span></div>
           ${it.description&&it.description.trim()?`<div class="track-line" style="color:var(--ink-faint);font-size:12px">${esc(it.description)}</div>`:''}
-          ${it.note&&it.note.trim()?`<div class="track-note">↳ comentário do cliente: "${esc(it.note)}"</div>`:''}</div></div>`;
+          ${it.note&&it.note.trim()?`<div class="track-note" style="display:flex;align-items:flex-start;gap:8px">↳ comentário do cliente: "${esc(it.note)}" <button class="icon-btn" style="width:22px;height:22px;font-size:12px;color:var(--red);flex-shrink:0" title="Apagar este comentário" onclick="clearNote('${it.id}','${p.id}')">✕</button></div>`:''}</div></div>`;
       }
     });
     const body=`
@@ -1155,7 +1155,11 @@ async function drawTracking(projectId){
         <div style="font-size:15px;font-weight:700">Status do mês:</div> ${badge}
         ${p.month_ts?`<span style="font-size:12.5px;color:var(--ink-faint)">${esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</span>`:''}
         <div style="flex:1"></div><div style="font-size:13px;color:var(--ink-soft)">${withNotes.length} tema(s) com observação</div></div>
-      <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem linhas.</p></div>'}</div>`;
+      <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem linhas.</p></div>'}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;justify-content:flex-end">
+        ${stt?`<button class="btn btn-ghost btn-sm" onclick="clearMonthStatus('${p.id}')">↺ Limpar status (voltar p/ aguardando)</button>`:''}
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-line)" onclick="clearAllResponses('${p.id}')">🗑 Limpar todas as respostas</button>
+      </div>`;
     return shell(body);
   }
 
@@ -1182,8 +1186,43 @@ async function drawTracking(projectId){
     <div class="stats">
       <div class="stat"><div class="bar" style="background:var(--accent)"></div><div class="in"><div class="lbl">PROGRESSO</div><div class="num">${pct}%</div><div class="minibar"><i style="width:${pct}%"></i></div></div></div>
       ${stat('var(--green)','APROVADOS',appr)}${stat('var(--red)','REPROVADOS',rej)}${stat('var(--amber-dot)','PENDENTES',total-done)}</div>
-    <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem itens.</p></div>'}</div>`;
+    <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem itens.</p></div>'}</div>
+    ${done>0?`<div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-line)" onclick="clearAllResponses('${p.id}')">🗑 Limpar todas as respostas</button></div>`:''}`;
   shell(body);
+}
+
+/* ---------- gerência das respostas (agência) ---------- */
+async function clearMonthStatus(pid){
+  const { error }=await sb.from('projects').update({month_status:null,month_sender:null,month_ts:null}).eq('id',pid);
+  if(error){ console.error(error); return toast('Erro ao limpar status'); }
+  toast('Status do mês limpo'); drawTracking(pid);
+}
+function clearNote(itemId,pid){
+  confirmDialog('Apagar comentário?','O comentário do cliente neste item será removido. Ele poderá comentar de novo pelo link.',async()=>{
+    const { error }=await sb.from('items').update({note:null}).eq('id',itemId);
+    if(error){ console.error(error); return toast('Erro ao apagar'); }
+    toast('Comentário apagado'); drawTracking(pid);
+  },true);
+}
+function clearAllResponses(pid){
+  const p=S.projects.find(x=>x.id===pid);
+  const isMonthly=p&&p.mode==='mensal';
+  confirmDialog('Limpar todas as respostas?',
+    isMonthly?'Remove a aprovação do mês e <b>todos os comentários</b> do cliente. O planejamento (semanas e posts) é mantido. O cliente volta a ver tudo em branco para responder de novo.'
+             :'Remove <b>todas as aprovações/reprovações e observações</b> do cliente. Os posts são mantidos. O cliente volta a ver tudo em branco para responder de novo.',
+    async()=>{
+      if(isMonthly){
+        await sb.from('projects').update({month_status:null,month_sender:null,month_ts:null}).eq('id',pid);
+        // limpa notes dos itens
+        const { data:its }=await sb.from('items').select('id').eq('project_id',pid);
+        for(const it of (its||[])){ await sb.from('items').update({note:null}).eq('id',it.id); }
+      } else {
+        const { data:its }=await sb.from('items').select('id').eq('project_id',pid);
+        const ids=(its||[]).map(i=>i.id);
+        if(ids.length){ await sb.from('decisions').delete().in('item_id',ids); }
+      }
+      toast('Respostas limpas'); drawTracking(pid);
+    },true);
 }
 
 /* ====================================================================
