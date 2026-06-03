@@ -303,6 +303,12 @@ const CFG = {
 const $ = (id)=> document.getElementById(id);
 const esc = (s)=> (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nowStr = ()=> new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+function fmtDate(v){ // 2026-07-06 -> 06/07  | mantém texto livre se não for ISO
+  if(!v) return '';
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if(m) return m[3]+'/'+m[2];
+  return v;
+}
 const PLATFORMS = ['Instagram Feed','Instagram Stories','Instagram Reels','Facebook','LinkedIn','TikTok','YouTube','Blog','E-mail mkt','Outro'];
 const KINDS = ['Mensal','Semanal','Quinzenal','Campanha','Avulso'];
 const PALETTE = ['#FF5C38','#2563EB','#0E7C66','#7C3AED','#DB2777','#EA580C','#0D9488','#4F46E5','#B91C1C','#0F766E'];
@@ -809,7 +815,7 @@ function weekBlockHTML(week, posts, pid){
     <div class="item-ed-head" style="background:#fff">
       <span class="pnum" style="background:var(--ink-soft)">${i+1}</span>
       <select onchange="upd('${it.id}','format',this.value)" style="width:130px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-weight:600">${FORMATS.map(f=>`<option ${it.format===f?'selected':''} value="${f}">${f}</option>`).join('')}</select>
-      <input value="${esc(it.post_date||'')}" onchange="upd('${it.id}','post_date',this.value)" placeholder="Data (ex.: 03/06)" style="width:120px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px">
+      <input type="date" value="${esc(it.post_date||'')}" onchange="upd('${it.id}','post_date',this.value)" style="width:150px;padding:5px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px">
       <div class="spacer" style="flex:1"></div>
       <button class="icon-btn" title="Subir" onclick="moveItem('${it.id}',-1)">↑</button>
       <button class="icon-btn" title="Descer" onclick="moveItem('${it.id}',1)">↓</button>
@@ -1053,7 +1059,7 @@ async function drawTracking(projectId){
       } else {
         cnt++;
         rows+=`<div class="track-row"><div class="track-num">${cnt}</div><div class="track-info">
-          <div class="tt">${esc(it.title||'(tema)')} <span style="font-weight:500;color:var(--ink-soft)">· ${esc(it.format||'')}${it.post_date?' · 📅 '+esc(it.post_date):''}</span></div>
+          <div class="tt">${esc(it.title||'(tema)')} <span style="font-weight:500;color:var(--ink-soft)">· ${esc(it.format||'')}${it.post_date?' · 📅 '+esc(fmtDate(it.post_date)):''}</span></div>
           ${it.description&&it.description.trim()?`<div class="track-line" style="color:var(--ink-faint);font-size:12px">${esc(it.description)}</div>`:''}
           ${it.note&&it.note.trim()?`<div class="track-note">↳ comentário do cliente: "${esc(it.note)}"</div>`:''}</div></div>`;
       }
@@ -1281,7 +1287,7 @@ function renderClientMonthly(c,p,items,picker){
     const postsHTML=wPosts.map((it,i)=>`<div class="post-card" style="margin-bottom:14px">
       <div class="post-head"><span class="pnum" style="background:${accent}">${i+1}</span>
         <div class="pinfo"><h3>${esc(it.title||'Post '+(i+1))}</h3>
-          <p>${fmtChip(it.format)} ${it.post_date?'· 📅 '+esc(it.post_date):''}</p></div></div>
+          <p>${fmtChip(it.format)} ${it.post_date?'· 📅 '+esc(fmtDate(it.post_date)):''}</p></div></div>
       ${it.description&&it.description.trim()?`<div class="blk"><div class="copy-block" style="border-left-color:${accent}"><p>${esc(it.description)}</p></div></div>`:''}
       <div class="blk" style="border-top:1px solid var(--line-soft)">
         <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);display:block;margin-bottom:7px">✏️ Comentário neste post (opcional)</label>
@@ -1435,7 +1441,7 @@ function buildClientText(){
     S.cItems.forEach((it)=>{
       if(it.row_type==='week'){ t+=`\n🗂️ *${it.title||it.week||'Semana'}*\n`; }
       else {
-        t+=`  • ${it.format||''}${it.post_date?' · '+it.post_date:''} — ${it.title||'(tema)'}\n`;
+        t+=`  • ${it.format||''}${it.post_date?' · '+fmtDate(it.post_date):''} — ${it.title||'(tema)'}\n`;
         if(it.note&&it.note.trim()){ t+=`     ✏️ ${it.note.trim()}\n`; ajustes.push(`• [${it.title||'tema'}] ${it.note.trim()}`); }
       }
     });
