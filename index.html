@@ -190,6 +190,24 @@
   .link-box code{font-size:12.5px;color:var(--ink);font-weight:600;word-break:break-all}
 
   .swcolor{width:33px;height:33px;border-radius:9px;cursor:pointer;border:3px solid transparent}
+  .datebtn{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .datebtn:hover{border-color:var(--accent);background:var(--accent-tint)}
+  .datebtn.empty{color:var(--ink-faint);font-weight:500}
+  .cal-pop{position:fixed;z-index:850;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);padding:14px;width:268px}
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .cal-head select{border:1px solid var(--line);border-radius:7px;padding:5px 7px;font-size:13px;font-weight:600;font-family:inherit}
+  .cal-nav{width:30px;height:30px;border-radius:7px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+  .cal-nav:hover{background:var(--line-soft)}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .cal-dow{font-size:10px;font-weight:700;color:var(--ink-faint);text-align:center;padding:4px 0}
+  .cal-day{aspect-ratio:1;border:none;background:none;border-radius:7px;font-size:12.5px;cursor:pointer;color:var(--ink);font-family:inherit}
+  .cal-day:hover{background:var(--accent-tint)}
+  .cal-day.sel{background:var(--accent);color:#fff;font-weight:700}
+  .cal-day.empty{visibility:hidden}
+  .cal-foot{display:flex;justify-content:space-between;margin-top:8px;border-top:1px solid var(--line-soft);padding-top:8px}
+  .cal-foot button{border:none;background:none;font-size:12px;font-weight:600;cursor:pointer;padding:4px 6px;border-radius:6px}
+  .cal-foot .clr{color:var(--red)} .cal-foot .clr:hover{background:var(--red-bg)}
+  .cal-foot .tdy{color:var(--accent)} .cal-foot .tdy:hover{background:var(--accent-tint)}
 
   /* ---------- client view ---------- */
   .c-header{padding:28px 26px;color:#fff;position:relative;overflow:hidden}
@@ -308,6 +326,69 @@ function fmtDate(v){ // 2026-07-06 -> 06/07  | mantém texto livre se não for I
   const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
   if(m) return m[3]+'/'+m[2];
   return v;
+}
+const MONTHS_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const DOW_PT=['D','S','T','Q','Q','S','S'];
+let _calItem=null, _calYM=null;
+function closeCal(){ const el=$('calPop'); if(el) el.remove(); document.removeEventListener('mousedown',_calOutside,true); _calItem=null; }
+function _calOutside(e){ const el=$('calPop'); if(el && !el.contains(e.target)) closeCal(); }
+function openCal(ev, itemId){
+  ev.stopPropagation();
+  if($('calPop')) closeCal();
+  _calItem=itemId;
+  const it=S._items.find(x=>x.id===itemId);
+  let y,mo;
+  const iso=/^(\d{4})-(\d{2})-(\d{2})$/.exec(it&&it.post_date||'');
+  if(iso){ y=+iso[1]; mo=+iso[2]-1; } else { const n=new Date(); y=n.getFullYear(); mo=n.getMonth(); }
+  _calYM={y,mo};
+  const pop=document.createElement('div'); pop.className='cal-pop'; pop.id='calPop';
+  document.body.appendChild(pop);
+  drawCal();
+  // posiciona perto do botão
+  const b=$('dbtn-'+itemId).getBoundingClientRect();
+  let top=b.bottom+6, left=b.left;
+  if(left+268>window.innerWidth-10) left=window.innerWidth-278;
+  if(top+330>window.innerHeight) top=Math.max(10,b.top-336);
+  pop.style.top=top+'px'; pop.style.left=left+'px';
+  setTimeout(()=>document.addEventListener('mousedown',_calOutside,true),0);
+}
+function drawCal(){
+  const pop=$('calPop'); if(!pop)return;
+  const {y,mo}=_calYM;
+  const it=S._items.find(x=>x.id===_calItem);
+  const selIso=/^(\d{4})-(\d{2})-(\d{2})$/.exec(it&&it.post_date||'');
+  const selY=selIso?+selIso[1]:null, selM=selIso?+selIso[2]-1:null, selD=selIso?+selIso[3]:null;
+  const first=new Date(y,mo,1).getDay();
+  const days=new Date(y,mo+1,0).getDate();
+  const years=[]; const cy=new Date().getFullYear(); for(let i=cy-1;i<=cy+2;i++) years.push(i);
+  let cells='';
+  for(let i=0;i<first;i++) cells+=`<button class="cal-day empty"></button>`;
+  for(let d=1;d<=days;d++){ const sel=(y===selY&&mo===selM&&d===selD); cells+=`<button class="cal-day ${sel?'sel':''}" onclick="pickDay(${d})">${d}</button>`; }
+  pop.innerHTML=`
+    <div class="cal-head">
+      <button class="cal-nav" onclick="calMove(-1)">‹</button>
+      <div style="display:flex;gap:5px">
+        <select onchange="calSet('mo',this.value)">${MONTHS_PT.map((m,i)=>`<option value="${i}" ${i===mo?'selected':''}>${m}</option>`).join('')}</select>
+        <select onchange="calSet('y',this.value)">${years.map(yy=>`<option value="${yy}" ${yy===y?'selected':''}>${yy}</option>`).join('')}</select>
+      </div>
+      <button class="cal-nav" onclick="calMove(1)">›</button>
+    </div>
+    <div class="cal-grid">${DOW_PT.map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells}</div>
+    <div class="cal-foot"><button class="clr" onclick="pickDay(0)">Limpar</button><button class="tdy" onclick="calToday()">Hoje</button></div>`;
+}
+function calMove(d){ let {y,mo}=_calYM; mo+=d; if(mo<0){mo=11;y--;} if(mo>11){mo=0;y++;} _calYM={y,mo}; drawCal(); }
+function calSet(k,v){ _calYM[k]=+v; drawCal(); }
+function calToday(){ const n=new Date(); _calYM={y:n.getFullYear(),mo:n.getMonth()}; drawCal(); }
+async function pickDay(d){
+  const it=S._items.find(x=>x.id===_calItem); const id=_calItem;
+  let iso='';
+  if(d>0){ const {y,mo}=_calYM; iso=`${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+  if(it) it.post_date=iso;
+  closeCal();
+  // atualiza o botão sem re-renderizar tudo
+  const btn=$('dbtn-'+id);
+  if(btn){ btn.innerHTML='📅 '+(iso?fmtDate(iso):'Escolher data'); btn.classList.toggle('empty',!iso); }
+  await sb.from('items').update({post_date:iso||null}).eq('id',id);
 }
 const PLATFORMS = ['Instagram Feed','Instagram Stories','Instagram Reels','Facebook','LinkedIn','TikTok','YouTube','Blog','E-mail mkt','Outro'];
 const KINDS = ['Mensal','Semanal','Quinzenal','Campanha','Avulso'];
@@ -815,7 +896,7 @@ function weekBlockHTML(week, posts, pid){
     <div class="item-ed-head" style="background:#fff">
       <span class="pnum" style="background:var(--ink-soft)">${i+1}</span>
       <select onchange="upd('${it.id}','format',this.value)" style="width:130px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-weight:600">${FORMATS.map(f=>`<option ${it.format===f?'selected':''} value="${f}">${f}</option>`).join('')}</select>
-      <input type="date" value="${esc(it.post_date||'')}" onchange="upd('${it.id}','post_date',this.value)" style="width:150px;padding:5px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px">
+      <button type="button" class="datebtn ${it.post_date?'':'empty'}" id="dbtn-${it.id}" onclick="openCal(event,'${it.id}')">📅 ${it.post_date?esc(fmtDate(it.post_date)):'Escolher data'}</button>
       <div class="spacer" style="flex:1"></div>
       <button class="icon-btn" title="Subir" onclick="moveItem('${it.id}',-1)">↑</button>
       <button class="icon-btn" title="Descer" onclick="moveItem('${it.id}',1)">↓</button>
