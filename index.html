@@ -1248,7 +1248,8 @@ async function renderClientView(){
       <div class="namewrap"><label>Seu nome</label><input id="cSender" placeholder="Quem está aprovando?" value="${esc(sender||'')}" onchange="saveSender(this.value)"></div>
       <div class="send-alert" id="cAlert"></div>
       <div class="send-btns">
-        <button class="btn btn-accent" style="padding:13px 36px;font-size:15px" onclick="finalizarEnvio()">✓ Enviar para a agência</button></div>
+        <button class="btn btn-accent" style="padding:13px 36px;font-size:15px" onclick="finalizarEnvio()">✓ Enviar para a agência</button>
+        <button class="btn btn-wa" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button></div>
       </div></div>
     <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
   drawClientSchedule(); updateClientProgress();
@@ -1315,6 +1316,10 @@ function renderClientMonthly(c,p,items,picker){
       <div id="mStatus" style="margin-top:14px;font-size:13px;font-weight:600;color:${st==='approved'?'var(--green)':st==='rejected'?'var(--red)':'var(--ink-faint)'}">
         ${st==='approved'?'✓ Mês aprovado'+(p.month_ts?' em '+esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):''):st==='rejected'?'✕ Revisão solicitada'+(p.month_ts?' em '+esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):''):'Aguardando sua avaliação'}</div>
       <p style="font-size:12.5px;color:var(--ink-faint);margin-top:12px">Sua resposta e observações chegam automaticamente à ${esc(CFG.agencyName)}.</p>
+      <div style="border-top:1px solid var(--line);margin:18px 0 0;padding-top:16px">
+        <p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px">Quer também enviar um resumo por WhatsApp com tudo que você comentou?</p>
+        <button class="btn btn-wa" onclick="cliWhatsapp()">📲 Enviar resumo no WhatsApp</button>
+      </div>
       </div></div>
     <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
   S._mSender=p.month_sender||'';
@@ -1423,20 +1428,34 @@ function updateClientProgress(){
 function buildClientText(){
   const c=S.cClient,p=S.cProjects.find(x=>x.id===S.cActiveProj);
   if(p.mode==='mensal'){
-    const name=(S._mSender||p.month_sender||'').trim()||'—';
-    const stt=p.month_status==='approved'?'✅ MÊS APROVADO':p.month_status==='rejected'?'❌ REVISÃO SOLICITADA':'⏳ PENDENTE';
-    let t=`🗓️ *APROVAÇÃO DO MÊS — ${c.name}*\nPlanejamento: ${p.title} (${p.period||''})\nResponsável: ${name}\nStatus: ${stt}\nData: ${nowStr()}\n${'─'.repeat(38)}\n\n`;
-    S.cItems.forEach((it)=>{ if(it.row_type==='week'){ t+=`\n🗂️ ${it.title||it.week||'Semana'}\n`; } else { t+=`  • ${it.format||''}${it.post_date?' ('+it.post_date+')':''} — ${it.title||'(tema)'}`; if(it.note)t+=`\n    ✏️ "${it.note}"`; t+='\n'; } });
-    t+=`\n${'─'.repeat(38)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
+    const name=((($('cSenderM')&&$('cSenderM').value)||S._mSender||p.month_sender||'').trim())||'—';
+    const stt=p.month_status==='approved'?'✅ MÊS APROVADO':p.month_status==='rejected'?'❌ REVISÃO SOLICITADA':'⏳ AINDA NÃO AVALIADO';
+    let t=`🗓️ *APROVAÇÃO DO MÊS — ${c.name}*\n${p.title}${p.period?' ('+p.period+')':''}\nResponsável: ${name}\nStatus: ${stt}\nData: ${nowStr()}\n${'─'.repeat(34)}\n`;
+    const ajustes=[];
+    S.cItems.forEach((it)=>{
+      if(it.row_type==='week'){ t+=`\n🗂️ *${it.title||it.week||'Semana'}*\n`; }
+      else {
+        t+=`  • ${it.format||''}${it.post_date?' · '+it.post_date:''} — ${it.title||'(tema)'}\n`;
+        if(it.note&&it.note.trim()){ t+=`     ✏️ ${it.note.trim()}\n`; ajustes.push(`• [${it.title||'tema'}] ${it.note.trim()}`); }
+      }
+    });
+    if(ajustes.length){
+      t+=`\n${'─'.repeat(34)}\n⚠️ *AJUSTES PEDIDOS (${ajustes.length})*\n`+ajustes.join('\n');
+    } else {
+      t+=`\n${'─'.repeat(34)}\n✅ Nenhum ajuste solicitado.`;
+    }
+    t+=`\n${'─'.repeat(34)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
     return t;
   }
   const name=(S.cSender||'').trim()||'—';
-  let t=`📋 *APROVAÇÃO DE CONTEÚDO — ${c.name}*\nCronograma: ${p.title} (${p.period||''})\nResponsável: ${name}\nData: ${nowStr()}\n${'─'.repeat(38)}\n\n`;
+  let t=`📋 *APROVAÇÃO DE CONTEÚDO — ${c.name}*\n${p.title}${p.period?' ('+p.period+')':''}\nResponsável: ${name}\nData: ${nowStr()}\n${'─'.repeat(34)}\n\n`;
+  const ajustes=[];
   S.cItems.forEach((it,i)=>{ t+=`*${i+1}. ${it.title||'Item '+(i+1)}*\n`;
     [['copy','Copy'],['creative','Criativo']].forEach(([tp,lbl])=>{ if(!it['has_'+tp])return;
       const d=S.cDecisions[it.id+'-'+tp]; const ic=!d?'⏳ PENDENTE':d.status==='approved'?'✅ APROVADO':'❌ REPROVADO';
-      t+=`   ${lbl}: ${ic}`; if(d&&d.status==='rejected'&&d.notes)t+=` → "${d.notes}"`; t+='\n'; }); t+='\n'; });
-  t+=`${'─'.repeat(38)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
+      t+=`   ${lbl}: ${ic}`; if(d&&d.status==='rejected'&&d.notes){ t+=` → "${d.notes}"`; ajustes.push(`• [${it.title||'item '+(i+1)}] ${lbl}: ${d.notes}`); } t+='\n'; }); t+='\n'; });
+  if(ajustes.length){ t+=`${'─'.repeat(34)}\n⚠️ *AJUSTES PEDIDOS (${ajustes.length})*\n`+ajustes.join('\n')+'\n'; }
+  t+=`${'─'.repeat(34)}\nEnviado via plug.aprova · ${CFG.agencyName}`;
   return t;
 }
 async function agencyContact(){ const {data}=await sb.from('agency').select('whatsapp,email').eq('id',1).maybeSingle(); return data||{}; }
