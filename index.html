@@ -509,6 +509,7 @@ function shell(body){
       ${navItem('dash','◈','Dashboard')}
       ${navItem('clients','◉','Clientes', S.clients.length)}
       <div class="nav-sec">OPERAÇÃO</div>
+      ${navItem('storage','▤','Armazenamento')}
       ${navItem('settings','⚙','Configurações')}
       <div class="side-foot" onclick="renderSettings()" style="cursor:pointer" title="Editar dados da agência">
         ${S.agency&&S.agency.logo?`<img class="av" src="${esc(S.agency.logo)}" style="object-fit:cover">`:`<div class="av">${esc((CFG.agencyName||'P').slice(0,2).toUpperCase())}</div>`}
@@ -526,6 +527,7 @@ function nav(view){
   if($('side')){ $('side').classList.remove('open'); $('scrim')?.classList.remove('show'); }
   if(view==='dash') renderDashboard();
   else if(view==='clients') renderClients();
+  else if(view==='storage') renderStorage();
   else if(view==='settings') renderSettings();
 }
 
@@ -1277,6 +1279,75 @@ function clearAllResponses(pid){
       }
       toast('Respostas limpas'); drawTracking(pid);
     },true);
+}
+
+/* ====================================================================
+   CONFIGURAÇÕES
+   ==================================================================== */
+function fmtBytes(b){ if(b<1024)return b+' B'; if(b<1048576)return (b/1024).toFixed(0)+' KB'; if(b<1073741824)return (b/1048576).toFixed(1)+' MB'; return (b/1073741824).toFixed(2)+' GB'; }
+async function listBucketFiles(prefix){
+  // lista recursiva: pastas (clientes/projetos) e arquivos
+  let all=[];
+  const { data, error } = await sb.storage.from(CFG.bucket).list(prefix,{limit:1000});
+  if(error||!data) return all;
+  for(const entry of data){
+    const path=prefix?prefix+'/'+entry.name:entry.name;
+    if(entry.id===null || (entry.metadata==null && !/\.[a-z0-9]+$/i.test(entry.name))){
+      // é uma "pasta" — desce
+      const sub=await listBucketFiles(path);
+      all=all.concat(sub);
+    } else {
+      const size=(entry.metadata&&entry.metadata.size)||0;
+      all.push({ path, size });
+    }
+  }
+  return all;
+}
+async function renderStorage(){
+  S.view='storage';
+  shell(`<div class="loading"><div class="spin"></div><p>Calculando uso de armazenamento…</p></div>`);
+  if(!await loadAll()) return;
+  let files=[];
+  try{ files=await listBucketFiles(''); }catch(e){ console.error(e); }
+  const totalBytes=files.reduce((s,f)=>s+(f.size||0),0);
+  const LIMIT=1073741824; // 1 GB
+  const pct=Math.min(100, Math.round(totalBytes/LIMIT*1000)/10);
+  const livre=Math.max(0, LIMIT-totalBytes);
+  const barColor = pct<70?'var(--green)':pct<90?'var(--amber-dot)':'var(--red)';
+
+  // contagens gerais
+  const nClients=S.clients.length, nProj=S.projects.length;
+  const { data:allItems } = await sb.from('items').select('id,row_type');
+  const nPosts=(allItems||[]).filter(i=>i.row_type!=='week').length;
+
+  const body=`
+    <div class="page-head"><div><h2>Armazenamento</h2><p>Acompanhe o uso de arquivos (imagens e vídeos dos criativos).</p></div>
+      <button class="btn btn-ghost" onclick="renderStorage()">↻ Atualizar</button></div>
+
+    <div class="tcard" style="padding:24px;max-width:620px;margin-bottom:16px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:15px;font-weight:700">Uso do armazenamento</div>
+        <div style="font-size:13px;color:var(--ink-soft)">${pct}% de 1 GB</div></div>
+      <div style="height:14px;background:var(--line-soft);border-radius:20px;overflow:hidden;margin-bottom:12px">
+        <div style="height:100%;width:${pct}%;background:${barColor};border-radius:20px;transition:width .4s"></div></div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <div><div style="font-size:24px;font-weight:800">${fmtBytes(totalBytes)}</div><div style="font-size:12px;color:var(--ink-faint)">usados</div></div>
+        <div><div style="font-size:24px;font-weight:800;color:var(--green)">${fmtBytes(livre)}</div><div style="font-size:12px;color:var(--ink-faint)">disponíveis</div></div>
+        <div><div style="font-size:24px;font-weight:800">${files.length}</div><div style="font-size:12px;color:var(--ink-faint)">arquivos</div></div>
+      </div>
+      ${pct>=90?`<div style="margin-top:16px;padding:12px 14px;background:var(--red-bg);border-radius:10px;font-size:13px;color:var(--red)">⚠️ Armazenamento quase cheio. Considere apagar criativos antigos já aprovados, ou usar links externos (Drive/YouTube) para vídeos novos.</div>`:pct>=70?`<div style="margin-top:16px;padding:12px 14px;background:var(--amber-bg,#FEF3C7);border-radius:10px;font-size:13px;color:#92660A">Atenção: você já usou mais de 70% do espaço. Vídeos são o que mais ocupam.</div>`:''}
+    </div>
+
+    <div class="tcard" style="padding:20px 24px;max-width:620px;margin-bottom:16px">
+      <div style="font-size:13.5px;font-weight:700;margin-bottom:12px">Resumo da conta</div>
+      <div style="display:flex;gap:28px;flex-wrap:wrap">
+        <div><div style="font-size:20px;font-weight:800">${nClients}</div><div style="font-size:12px;color:var(--ink-faint)">clientes</div></div>
+        <div><div style="font-size:20px;font-weight:800">${nProj}</div><div style="font-size:12px;color:var(--ink-faint)">cronogramas</div></div>
+        <div><div style="font-size:20px;font-weight:800">${nPosts}</div><div style="font-size:12px;color:var(--ink-faint)">posts</div></div>
+      </div>
+      <p class="hint" style="margin-top:14px">Os textos (cronogramas, temas, descrições, comentários) praticamente não ocupam espaço — o limite que importa é o de arquivos acima.</p>
+    </div>`;
+  shell(body);
 }
 
 /* ====================================================================
