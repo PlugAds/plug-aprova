@@ -612,7 +612,7 @@ async function renderDashboard(){
         <div style="font-size:12.5px;flex:1">${esc(r.cname)} · <span style="color:var(--ink-faint)">${esc(r.label)}</span></div>
         <span class="sb ${ok?'approved':'rejected'}">${stLabel}</span></div>`;
     }
-  } else { recentRows=`<div style="padding:16px 0;color:var(--ink-faint);font-size:13px">Nenhuma resposta ainda. Publique um cronograma e envie o link ao cliente.</div>`; }
+  } else { recentRows=`<div style="padding:16px 0;color:var(--ink-faint);font-size:13px">Nenhuma resposta ainda. Publique uma tarefa e envie o link ao cliente.</div>`; }
 
   const body=`
     <div class="page-head"><div><h2>Dashboard</h2><p>Visão geral das aprovações de todos os clientes.</p></div>
@@ -646,7 +646,7 @@ async function renderClients(){
       <div class="swatch" style="background:${c.color}"></div>
       ${clientAvatar(c,'cinit')}
       <h3>${esc(c.name)}</h3>
-      <div class="meta">${projs.length} cronograma${projs.length!==1?'s':''}${c.contact?' · '+esc(c.contact):''}</div>
+      <div class="meta">${projs.length} tarefa${projs.length!==1?'s':''}${c.contact?' · '+esc(c.contact):''}</div>
       <div class="minibar"><i style="width:${pct}%;background:${c.color}"></i></div>
       <div class="foot"><span class="chip chip-ink">${pct}% aprovado</span></div></div>`;
   }
@@ -654,7 +654,7 @@ async function renderClients(){
     <div class="page-head"><div><h2>Clientes</h2><p>Cada cliente recebe um link privado, isolado dos demais.</p></div>
       <button class="btn btn-accent" onclick="editClient()">＋ Novo cliente</button></div>
     ${S.clients.length? `<div class="grid">${cards}<button class="add-card" onclick="editClient()"><span class="pl">＋</span>Adicionar cliente</button></div>`
-      : `<div class="empty"><div class="em">🗂️</div><h3>Nenhum cliente ainda</h3><p>Crie o primeiro cliente para montar um cronograma.</p><br><button class="btn btn-accent" onclick="editClient()">＋ Criar primeiro cliente</button></div>`}`;
+      : `<div class="empty"><div class="em">🗂️</div><h3>Nenhum cliente ainda</h3><p>Crie o primeiro cliente para montar uma tarefa.</p><br><button class="btn btn-accent" onclick="editClient()">＋ Criar primeiro cliente</button></div>`}`;
   shell(body);
 }
 
@@ -726,14 +726,14 @@ async function saveClient(id){
   closeModal(); toast('Cliente salvo'); renderClients();
 }
 function delClient(id){
-  confirmDialog('Excluir cliente?','Remove o cliente e <b>todos os cronogramas</b> vinculados. Não pode ser desfeito.',async()=>{
+  confirmDialog('Excluir cliente?','Remove o cliente e <b>todos os tarefas</b> vinculados. Não pode ser desfeito.',async()=>{
     const { error }=await sb.from('clients').delete().eq('id',id);
     if(error) return toast('Erro ao excluir');
     closeModal(); toast('Cliente excluído'); renderClients();
   },true);
 }
 
-/* ---------- PÁGINA DO CLIENTE (lista de cronogramas) ---------- */
+/* ---------- PÁGINA DO CLIENTE (lista de tarefas) ---------- */
 async function renderClientPage(clientId){
   S.view='clients'; S.clientId=clientId;
   shell(`<div class="loading"><div class="spin"></div><p>Carregando…</p></div>`);
@@ -780,9 +780,9 @@ async function renderClientPage(clientId){
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="showClientLink('${c.id}')">🔗 Link do cliente</button>
         <button class="btn btn-ghost" onclick="editClient('${c.id}')">Editar</button>
-        <button class="btn btn-accent" onclick="editProject(null,'${c.id}')">＋ Cronograma</button></div></div>
-    ${projs.length? `<div class="grid">${cards}<button class="add-card" onclick="editProject(null,'${c.id}')"><span class="pl">＋</span>Novo cronograma</button></div>`
-      : `<div class="empty"><div class="em">📅</div><h3>Nenhum cronograma</h3><p>Monte o primeiro cronograma deste cliente.</p><br><button class="btn btn-accent" onclick="editProject(null,'${c.id}')">＋ Criar cronograma</button></div>`}`;
+        <button class="btn btn-accent" onclick="editProject(null,'${c.id}')">＋ Tarefa</button></div></div>
+    ${projs.length? `<div class="grid">${cards}<button class="add-card" onclick="editProject(null,'${c.id}')"><span class="pl">＋</span>Nova tarefa</button></div>`
+      : `<div class="empty"><div class="em">📅</div><h3>Nenhuma tarefa</h3><p>Monte a primeira tarefa deste cliente.</p><br><button class="btn btn-accent" onclick="editProject(null,'${c.id}')">＋ Criar tarefa</button></div>`}`;
   shell(body);
 }
 
@@ -797,10 +797,10 @@ function showClientLink(clientId){
   openModal(`
     <div class="modal-head"><h3>Link privado · ${esc(c.name)}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
-      <p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:14px">Envie este link para o cliente. Ele abre <b>apenas</b> os cronogramas publicados deste cliente — nenhum outro cliente é acessível por ele.</p>
+      <p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:14px">Envie este link para o cliente. Ele abre <b>apenas</b> os tarefas publicados deste cliente — nenhum outro cliente é acessível por ele.</p>
       <div class="link-box" style="margin-bottom:6px"><code>${esc(link)}</code></div>
       ${c.pin?`<p class="hint">🔒 Protegido por PIN. O cliente também precisará digitar o PIN definido.</p>`:''}
-      ${pubProj===0?`<div class="send-alert show" style="margin:14px 0 0">⚠️ Nenhum cronograma publicado ainda — o cliente verá uma tela vazia até você publicar.</div>`:''}
+      ${pubProj===0?`<div class="send-alert show" style="margin:14px 0 0">⚠️ Nenhuma tarefa publicada ainda — o cliente verá uma tela vazia até você publicar.</div>`:''}
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="copyText('${esc(link)}','Link copiado!')">📋 Copiar link</button>
@@ -813,27 +813,28 @@ function shareWa(name,link){
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
 
-/* ---------- editar cronograma (dados) ---------- */
+/* ---------- editar tarefa (dados) ---------- */
 function editProject(id,clientId){
   const p=id?S.projects.find(x=>x.id===id):null;
   const mode=p?(p.mode||'semanal'):'semanal';
-  const lockMode = !!id; // não troca o modo de um cronograma já criado (evita misturar itens)
+  const lockMode = !!id; // não troca o modo de uma tarefa já criado (evita misturar itens)
+  const modeLabel = m => m==='mensal'?'🗓️ Cronograma mensal':m==='projeto'?'📦 Projeto':'📸 Pauta semanal';
   openModal(`
-    <div class="modal-head"><h3>${p?'Editar':'Novo'} cronograma</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-head"><h3>${p?'Editar':'Nova'} tarefa</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       ${lockMode?'':`<div class="field"><label>Tipo de aprovação</label>
-        <div style="display:flex;gap:10px">
-          <button type="button" class="modepick" data-m="mensal" onclick="pickMode('mensal')" style="flex:1;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
-            <div style="font-weight:700;font-size:14px">🗓️ Cronograma mensal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Planejamento: semana, formato, qtd e tema. Sem copy/criativo.</div></button>
-          <button type="button" class="modepick" data-m="semanal" onclick="pickMode('semanal')" style="flex:1;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button type="button" class="modepick" data-m="mensal" onclick="pickMode('mensal')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
+            <div style="font-weight:700;font-size:14px">🗓️ Cronograma mensal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Planejamento do mês: semanas e posts (formato, tema, data).</div></button>
+          <button type="button" class="modepick" data-m="semanal" onclick="pickMode('semanal')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
             <div style="font-weight:700;font-size:14px">📸 Pauta semanal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Posts prontos com copy e criativo, aprovados um a um.</div></button>
+          <button type="button" class="modepick" data-m="projeto" onclick="pickMode('projeto')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
+            <div style="font-weight:700;font-size:14px">📦 Projeto</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Entrega ou tarefa avulsa: descrição + anexos para aprovar.</div></button>
         </div><input type="hidden" id="pMode" value="${mode}"></div>`}
-      ${lockMode?`<input type="hidden" id="pMode" value="${mode}"><div class="chip ${mode==='mensal'?'chip-accent':'chip-ink'}" style="margin-bottom:14px">${mode==='mensal'?'🗓️ Cronograma mensal':'📸 Pauta semanal'}</div>`:''}
-      <div class="field"><label>Título</label><input id="pTitle" value="${p?esc(p.title):''}" placeholder="${mode==='mensal'?'Ex.: Planejamento de Junho':'Ex.: Pauta Semana 1'}"></div>
-      <div class="row2">
-        <div class="field"><label>Tipo</label><select id="pKind">${KINDS.map(k=>`<option ${p&&p.kind===k?'selected':(!p&&((mode==='mensal'&&k==='Mensal')||(mode==='semanal'&&k==='Semanal')))?'selected':''}>${k}</option>`).join('')}</select></div>
-        <div class="field"><label>Período</label><input id="pPeriod" value="${p?esc(p.period||''):''}" placeholder="${mode==='mensal'?'Ex.: Junho 2026':'Ex.: 01 a 07/06'}"></div>
-      </div></div>
+      ${lockMode?`<input type="hidden" id="pMode" value="${mode}"><div class="chip ${mode==='mensal'?'chip-accent':'chip-ink'}" style="margin-bottom:14px">${modeLabel(mode)}</div>`:''}
+      <div class="field"><label>Título</label><input id="pTitle" value="${p?esc(p.title):''}" placeholder="Ex.: Planejamento de Junho"></div>
+      <div class="field"><label>Período / referência (opcional)</label><input id="pPeriod" value="${p?esc(p.period||''):''}" placeholder="Ex.: Junho 2026"></div>
+      </div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-accent" onclick="saveProject(${p?`'${p.id}'`:'null'},${clientId?`'${clientId}'`:'null'})">${p?'Salvar':'Criar e montar'}</button></div>`);
   if(!lockMode) pickMode(mode);
@@ -841,16 +842,18 @@ function editProject(id,clientId){
 function pickMode(m){
   const inp=$('pMode'); if(inp) inp.value=m;
   document.querySelectorAll('.modepick').forEach(b=>{ const on=b.dataset.m===m; b.style.borderColor=on?'var(--accent)':'var(--line)'; b.style.background=on?'var(--accent-tint)':'#fff'; });
+  const t=$('pTitle'); if(t&&!t.value){ t.placeholder = m==='mensal'?'Ex.: Planejamento de Junho':m==='projeto'?'Ex.: Identidade visual, Campanha de aniversário…':'Ex.: Pauta Semana 1'; }
 }
 async function saveProject(id,clientId){
   const title=$('pTitle').value.trim(); if(!title) return toast('Informe o título');
   const mode=$('pMode')?$('pMode').value:'semanal';
-  const rec={ title, kind:$('pKind').value, period:$('pPeriod').value.trim(), mode };
+  const kind = mode==='mensal'?'Mensal':mode==='projeto'?'Projeto':'Semanal';
+  const rec={ title, kind, period:$('pPeriod').value.trim(), mode };
   if(id){ const {error}=await sb.from('projects').update(rec).eq('id',id); if(error)return toast('Erro ao salvar'); closeModal(); renderProject(id); }
   else{ rec.client_id=clientId; rec.published=false;
     const {data,error}=await sb.from('projects').insert(rec).select().single();
     if(error){console.error(error);return toast('Erro ao criar');} closeModal(); renderProject(data.id); }
-  toast('Cronograma salvo');
+  toast('Tarefa salvo');
 }
 
 /* ====================================================================
@@ -858,12 +861,13 @@ async function saveProject(id,clientId){
    ==================================================================== */
 async function renderProject(projectId){
   S.view='clients'; S.projectId=projectId;
-  shell(`<div class="loading"><div class="spin"></div><p>Carregando cronograma…</p></div>`);
+  shell(`<div class="loading"><div class="spin"></div><p>Carregando tarefa…</p></div>`);
   await loadAll();
   const p=S.projects.find(x=>x.id===projectId); if(!p) return renderClients();
   const c=S.clients.find(x=>x.id===p.client_id);
   const isMonthly=(p.mode==='mensal') || (!p.mode && p.kind==='Mensal');
-  if(!p.mode){ // cronograma antigo sem modo: grava o modo inferido para consertar
+  const isProject=(p.mode==='projeto');
+  if(!p.mode){ // tarefa antigo sem modo: grava o modo inferido para consertar
     const inferred=isMonthly?'mensal':'semanal';
     sb.from('projects').update({mode:inferred}).eq('id',p.id);
     p.mode=inferred;
@@ -871,12 +875,13 @@ async function renderProject(projectId){
   const { data:items } = await sb.from('items').select('*').eq('project_id',projectId).order('sort');
   S._items=items||[];
   const link=clientLinkFor(c);
+  const modeChip = isMonthly?'<span class="chip chip-accent">🗓️ Mensal</span>':isProject?'<span class="chip chip-accent">📦 Projeto</span>':'<span class="chip chip-ink">📸 Semanal</span>';
 
   const head=`
     <div class="page-head"><div>
       <div class="crumb"><a onclick="nav('clients')">Clientes</a> / <a onclick="renderClientPage('${c.id}')">${esc(c.name)}</a> / <b>${esc(p.title)}</b></div>
       <h2>${esc(p.title)}</h2>
-      <p><span class="chip ${isMonthly?'chip-accent':'chip-ink'}">${isMonthly?'🗓️ Mensal':'📸 Semanal'}</span> <span class="chip chip-ink">${esc(p.kind)}</span> ${esc(p.period||'')} · ${(items||[]).length} ${isMonthly?'linhas':'itens'}</p></div>
+      <p>${modeChip} <span class="chip chip-ink">${esc(p.kind)}</span> ${esc(p.period||'')} · ${(items||[]).length} ${isProject?'itens':isMonthly?'linhas':'itens'}</p></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="editProject('${p.id}')">Editar dados</button>
         <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red-line)" onclick="delProject('${p.id}','${c.id}')">🗑 Excluir</button>
@@ -890,6 +895,7 @@ async function renderProject(projectId){
         <button class="btn btn-ghost btn-sm" onclick="shareWa('${esc(c.name)}','${esc(link)}')">WhatsApp</button></div>`:''}`;
 
   if(isMonthly){ return shell(head + monthlyEditorBody(p,items||[])); }
+  if(isProject){ return shell(head + projectEditorBody(p,items||[])); }
 
   // ----- SEMANAL (posts com copy/criativo) -----
   const ids=(items||[]).map(i=>i.id);
@@ -908,7 +914,7 @@ async function renderProject(projectId){
     : `<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:28px">Nenhum item ainda.</td></tr>`;
   const itemsEd=(items||[]).map((it,i)=>itemEditorHTML(it,i)).join('');
   const body=head+`
-    <div class="secbar"><div class="ico">📅</div><h3>Cronograma</h3></div>
+    <div class="secbar"><div class="ico">📅</div><h3>Tarefa</h3></div>
     <div class="tcard"><table><thead><tr><th>#</th><th>Pauta</th><th>Plataforma / Formato</th><th>Copy</th><th>Criativo</th></tr></thead><tbody>${scheduleRows}</tbody></table></div>
     <div class="secbar"><div class="ico">✏️</div><h3>Posts da semana</h3><div class="spacer"></div><button class="btn btn-ghost btn-sm" onclick="addItem('${p.id}')">＋ Adicionar post</button></div>
     <div id="itemsList">${itemsEd||`<div class="empty"><div class="em">📝</div><h3>Sem posts</h3><p>Adicione o primeiro post da semana.</p><br><button class="btn btn-accent" onclick="addItem('${p.id}')">＋ Adicionar post</button></div>`}</div>
@@ -1003,6 +1009,45 @@ function delWeek(weekId){
   },true);
 }
 
+/* ----- EDITOR DO PROJETO (itens livres: título + descrição + anexo) ----- */
+function projectEditorBody(p,items){
+  const cards=items.map((it,i)=>{ const src=it.creative_url||''; return `<div class="item-ed">
+    <div class="item-ed-head">
+      <span class="pnum">${i+1}</span>
+      <input value="${esc(it.title||'')}" onchange="upd('${it.id}','title',this.value)" placeholder="Título do item (ex.: Proposta de logo, Arte do post…)" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-weight:600">
+      <div class="spacer"></div>
+      <button class="icon-btn" title="Subir" onclick="moveItem('${it.id}',-1)">↑</button>
+      <button class="icon-btn" title="Descer" onclick="moveItem('${it.id}',1)">↓</button>
+      <button class="icon-btn" style="color:var(--red)" title="Excluir item" onclick="delItem('${it.id}')">🗑</button>
+    </div>
+    <div class="item-ed-body">
+      <div class="field" style="margin-bottom:11px"><label>Descrição</label>
+        <textarea onchange="upd('${it.id}','description',this.value)" placeholder="Descreva a entrega, a tarefa ou o que precisa ser aprovado…" style="min-height:90px">${esc(it.description||'')}</textarea></div>
+      <div class="field" style="margin-bottom:0"><label>Anexo (imagem ou vídeo) — opcional</label>
+        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-${it.id}').click()">📤 Enviar imagem ou vídeo</button>
+          <input type="file" id="file-${it.id}" accept="image/*,video/*" style="display:none" onchange="uploadImg('${it.id}',this)">
+          <span style="font-size:12px;color:var(--ink-faint)">ou</span>
+          <input value="${esc(it.creative_url||'')}" onchange="upd('${it.id}','creative_url',this.value);refreshPrev('${it.id}',this.value)" placeholder="cole uma URL" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+          ${src?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearImg('${it.id}')">Remover</button>`:''}</div>
+        <p class="hint" style="margin-top:6px">Upload de até 50MB. Para arquivos maiores, cole um link (Drive/YouTube/etc.).</p>
+        <div class="creative-prev" id="prev-${it.id}">${src?creativeMediaHTML(it):'<div class="none">Sem anexo. Envie um arquivo, cole uma URL, ou deixe vazio.</div>'}</div></div>
+    </div></div>`; }).join('');
+  return `
+    <div class="secbar"><div class="ico">📦</div><h3>Itens do projeto</h3><div class="spacer"></div>
+      <button class="btn btn-accent btn-sm" onclick="addProjItem('${p.id}')">＋ Adicionar item</button></div>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 16px">Cada item é uma entrega ou tarefa: um título, a descrição e, se quiser, um anexo. O cliente aprova item a item e pode comentar.</p>
+    ${cards||`<div class="empty"><div class="em">📦</div><h3>Projeto vazio</h3><p>Adicione o primeiro item desta entrega.</p><br><button class="btn btn-accent" onclick="addProjItem('${p.id}')">＋ Adicionar item</button></div>`}
+    ${items.length?`<div style="text-align:center;margin-top:16px"><button class="btn btn-ghost" onclick="addProjItem('${p.id}')">＋ Adicionar item</button></div>`:''}`;
+}
+async function addProjItem(pid){
+  const sort=(S._items.length?Math.max(...S._items.map(i=>i.sort||0))+1:0);
+  const rec={ project_id:pid, row_type:'post', title:'', description:'', has_copy:false, has_creative:true, sort };
+  const { error }=await sb.from('items').insert(rec);
+  if(error){ console.error(error); return toast('Erro ao adicionar item'); }
+  renderProject(pid);
+}
+
 function itemEditorHTML(it,i){
   const src=it.creative_url||'';
   return `<div class="item-ed" id="ed-${it.id}">
@@ -1065,10 +1110,10 @@ function delItem(id){
 }
 function delProject(id,clientId){
   const p=S.projects.find(x=>x.id===id);
-  confirmDialog('Excluir cronograma?',`Remove <b>"${esc(p?p.title:'')}"</b> e todos os itens e respostas dele. Não pode ser desfeito.`,async()=>{
+  confirmDialog('Excluir tarefa?',`Remove <b>"${esc(p?p.title:'')}"</b> e todos os itens e respostas dele. Não pode ser desfeito.`,async()=>{
     const { error }=await sb.from('projects').delete().eq('id',id);
     if(error){ console.error(error); return toast('Erro ao excluir'); }
-    toast('Cronograma excluído'); renderClientPage(clientId);
+    toast('Tarefa excluída'); renderClientPage(clientId);
   },true);
 }
 async function dupItem(id){
@@ -1342,10 +1387,10 @@ async function renderStorage(){
       <div style="font-size:13.5px;font-weight:700;margin-bottom:12px">Resumo da conta</div>
       <div style="display:flex;gap:28px;flex-wrap:wrap">
         <div><div style="font-size:20px;font-weight:800">${nClients}</div><div style="font-size:12px;color:var(--ink-faint)">clientes</div></div>
-        <div><div style="font-size:20px;font-weight:800">${nProj}</div><div style="font-size:12px;color:var(--ink-faint)">cronogramas</div></div>
+        <div><div style="font-size:20px;font-weight:800">${nProj}</div><div style="font-size:12px;color:var(--ink-faint)">tarefas</div></div>
         <div><div style="font-size:20px;font-weight:800">${nPosts}</div><div style="font-size:12px;color:var(--ink-faint)">posts</div></div>
       </div>
-      <p class="hint" style="margin-top:14px">Os textos (cronogramas, temas, descrições, comentários) praticamente não ocupam espaço — o limite que importa é o de arquivos acima.</p>
+      <p class="hint" style="margin-top:14px">Os textos (tarefas, temas, descrições, comentários) praticamente não ocupam espaço — o limite que importa é o de arquivos acima.</p>
     </div>`;
   shell(body);
 }
@@ -1382,7 +1427,7 @@ async function renderSettings(){
     </div>
     <div class="tcard" style="padding:20px 24px;max-width:580px;margin-top:16px">
       <div style="font-size:13.5px;font-weight:700;margin-bottom:6px">🔒 Segurança</div>
-      <p style="font-size:13px;color:var(--ink-soft);line-height:1.6">Cada cliente acessa só os próprios cronogramas, por um link com token secreto validado no banco (RLS). O painel é protegido por senha. Para trocar a senha, fale comigo que ajusto no Supabase.</p>
+      <p style="font-size:13px;color:var(--ink-soft);line-height:1.6">Cada cliente acessa só as próprias tarefas, por um link com token secreto validado no banco (RLS). O painel é protegido por senha. Para trocar a senha, fale comigo que ajusto no Supabase.</p>
     </div>`);
 }
 function uploadLogo(input){
@@ -1450,7 +1495,7 @@ async function loadClientView(){
   const { data:projects } = await sb.from('projects').select('*').eq('client_id',c.id).order('created_at',{ascending:false});
   S.cProjects=projects||[];
   if(!S.cProjects.length){
-    $('app').innerHTML=clientHeader(c)+`<div class="c-wrap"><div class="empty"><div class="em">📭</div><h3>Nada por aqui ainda</h3><p>Assim que a ${esc(CFG.agencyName)} publicar um cronograma, ele aparece aqui para sua aprovação.</p></div></div>`;
+    $('app').innerHTML=clientHeader(c)+`<div class="c-wrap"><div class="empty"><div class="em">📭</div><h3>Nada por aqui ainda</h3><p>Assim que a ${esc(CFG.agencyName)} publicar uma tarefa, ele aparece aqui para sua aprovação.</p></div></div>`;
     return;
   }
   S.cActiveProj=S.cProjects[0].id;
@@ -1480,16 +1525,35 @@ async function renderClientView(){
   const picker=S.cProjects.length>1?`<div class="proj-pick">${S.cProjects.filter(pr=>pr.published).map(pr=>`<button class="proj-tab ${pr.id===S.cActiveProj?'active':''}" style="${pr.id===S.cActiveProj?`background:${c.color}`:''}" onclick="switchProj('${pr.id}')">${pr.mode==='mensal'?'🗓️ ':'📸 '}${esc(pr.title)}</button>`).join('')}</div>`:'';
 
   if(!p.published){
-    document.querySelector('.c-wrap').innerHTML=picker+`<div class="empty"><div class="em">⏳</div><h3>Em preparação</h3><p>Este cronograma ainda está sendo finalizado pela agência.</p></div>`;
+    document.querySelector('.c-wrap').innerHTML=picker+`<div class="empty"><div class="em">⏳</div><h3>Em preparação</h3><p>Esta tarefa ainda está sendo finalizada pela agência.</p></div>`;
     return;
   }
 
   if(p.mode==='mensal'){ return renderClientMonthly(c,p,items||[],picker); }
 
+  if(p.mode==='projeto'){
+    const cards=(items||[]).map((it,i)=>clientProjectCardHTML(it,i,dm,c)).join('');
+    document.querySelector('.c-wrap').innerHTML=`
+      ${picker}
+      <div class="secbar"><div class="ico" style="background:${c.color}">📦</div><h3>${esc(p.title)}</h3></div>
+      <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Veja cada item desta entrega. Aprove ou marque <b>reprovar</b> e descreva o ajuste.</p>
+      ${cards||'<div class="empty"><p>Nenhum item disponível ainda.</p></div>'}
+      <div class="send-block"><div class="send-inner"><div class="si">📤</div><h2>Finalizar aprovação</h2>
+        <p>Suas respostas são salvas automaticamente. Confirme seu nome e clique em enviar para concluir.</p>
+        <div class="namewrap"><label>Seu nome</label><input id="cSender" placeholder="Quem está aprovando?" value="${esc(sender||'')}" onchange="saveSender(this.value)"></div>
+        <div class="send-btns">
+          <button class="btn btn-accent" style="padding:13px 36px;font-size:15px" onclick="finalizarEnvio()">✓ Enviar para a agência</button>
+          <button class="btn btn-wa" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button></div>
+        </div></div>
+      <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
+    updateClientProgress();
+    return;
+  }
+
   const cards=(items||[]).map((it,i)=>clientCardHTML(it,i,dm,c)).join('');
   document.querySelector('.c-wrap').innerHTML=`
     ${picker}
-    <div class="secbar"><div class="ico" style="background:${c.color}">📅</div><h3>Cronograma</h3></div>
+    <div class="secbar"><div class="ico" style="background:${c.color}">📅</div><h3>Tarefa</h3></div>
     <div class="tcard" style="margin-bottom:8px"><table><thead style="background:${c.color}"><tr><th>#</th><th>Pauta</th><th>Plataforma</th><th>Copy</th><th>Criativo</th></tr></thead><tbody id="cSchedule"></tbody></table></div>
     <div class="secbar"><div class="ico" style="background:${c.color}">📸</div><h3>Itens para aprovação</h3></div>
     <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Aprove cada item ou marque <b>reprovar</b> e descreva o ajuste.</p>
@@ -1602,6 +1666,20 @@ async function decideMonth(pid,val){
 
 function shade(hex){ try{ const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255; r=Math.round(r*.68);g=Math.round(g*.68);b=Math.round(b*.68); return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);}catch(e){return hex;} }
 
+function clientProjectCardHTML(it,i,dm,c){
+  const accent=c.color; const src=it.creative_url||'';
+  const blocks=[];
+  if(it.description&&it.description.trim()){
+    blocks.push(`<div class="blk"><div class="copy-block" style="border-left-color:${accent};white-space:pre-wrap">${esc(it.description)}</div></div>`);
+  }
+  if(src){
+    blocks.push(`<div class="blk"><div class="blk-label"><span class="chip chip-ink">📎 Anexo</span></div>
+      <div class="creative-prev">${creativeMediaHTML(it)}</div></div>`);
+  }
+  blocks.push(`<div class="blk">${approveBoxHTML(it.id,'creative','Aprovação',dm)}</div>`);
+  return `<div class="post-card"><div class="post-head"><span class="pnum" style="background:${accent}">${i+1}</span>
+    <div class="pinfo"><h3>${esc(it.title||'Item '+(i+1))}</h3></div></div>${blocks.join('')}</div>`;
+}
 function clientCardHTML(it,i,dm,c){
   const accent=c.color; const blocks=[];
   if(it.has_creative){ const src=it.creative_url||'';
