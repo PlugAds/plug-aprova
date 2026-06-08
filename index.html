@@ -179,6 +179,21 @@
   .creative-prev .none{color:rgba(255,255,255,.4);font-size:13px;padding:30px;text-align:center}
 
   .track-row{display:flex;align-items:flex-start;gap:13px;padding:14px 0;border-bottom:1px solid var(--line-soft)}
+  /* tracking estruturado (semana/post) para tela e PDF */
+  .tk-doc{display:flex;flex-direction:column;gap:16px}
+  .tk-doc-title{font-size:19px;font-weight:800;margin-bottom:4px}
+  .no-screen{display:none}
+  .tk-week{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;break-inside:avoid}
+  .tk-week-h{display:flex;align-items:center;gap:9px;background:var(--line-soft);padding:12px 18px;font-size:15px;border-bottom:1px solid var(--line)}
+  .tk-week-h b{font-size:15px}
+  .tk-post{padding:16px 18px;border-bottom:1px solid var(--line-soft);break-inside:avoid}
+  .tk-post:last-child{border-bottom:none}
+  .tk-post-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .tk-num{width:24px;height:24px;border-radius:7px;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+  .tk-title{font-size:15px;font-weight:700;color:var(--ink)}
+  .tk-meta{font-size:12.5px;font-weight:600;color:var(--accent);background:var(--accent-tint);padding:2px 9px;border-radius:20px}
+  .tk-desc{white-space:pre-wrap;font-size:13.5px;line-height:1.62;color:var(--ink);background:#fff;border-left:3px solid var(--line);padding:4px 0 4px 14px;margin:6px 0 0}
+  .tk-note{display:flex;align-items:flex-start;gap:8px;margin-top:10px;font-size:13px;color:var(--accent);background:var(--accent-tint);border-radius:8px;padding:8px 11px;white-space:pre-wrap}
   .track-row:last-child{border-bottom:none}
   .track-num{width:27px;height:27px;border-radius:8px;background:var(--line-soft);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;margin-top:2px}
   .track-info{flex:1;min-width:0}
@@ -290,10 +305,12 @@
     .scrim.show{display:block}
   }
   @media print{
-    .side,.topbar,.send-block,.secbar .spacer,.no-print{display:none!important}
+    .side,.topbar,.send-block,.secbar .spacer,.no-print,.page-head>div:last-child,.crumb{display:none!important}
     .content{padding:0} body{background:#fff}
-    .post-card,.tcard{box-shadow:none;break-inside:avoid}
+    .post-card,.tcard,.tk-week,.tk-post{box-shadow:none;break-inside:avoid}
     .ap-ts{display:block!important}
+    .no-screen{display:block!important}
+    .tk-week{border-color:#ccc} .tk-meta{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
 </style>
 </head>
@@ -1160,19 +1177,24 @@ async function drawTracking(projectId){
     const stt=p.month_status;
     const badge=stt==='approved'?'<span class="sb approved">✓ Mês aprovado</span>':stt==='rejected'?'<span class="sb rejected">✕ Revisão solicitada</span>':'<span class="sb pending">○ Aguardando aprovação</span>';
     const withNotes=(items||[]).filter(it=>it.row_type!=='week'&&it.note&&it.note.trim());
-    let rows='', cw=null, cnt=0;
+    let rows='', cnt=0, openWeek=false;
     (items||[]).forEach(it=>{
       if(it.row_type==='week'){
-        rows+=`<div style="display:flex;align-items:center;gap:9px;padding:14px 0 8px;border-bottom:1px solid var(--line)"><span style="font-size:15px">🗂️</span><b style="font-size:14.5px">${esc(it.title||it.week||'Semana')}</b></div>`;
-        cnt=0;
+        if(openWeek) rows+=`</div>`; // fecha semana anterior
+        rows+=`<div class="tk-week"><div class="tk-week-h"><span>🗂️</span><b>${esc(it.title||it.week||'Semana')}</b></div>`;
+        openWeek=true; cnt=0;
       } else {
         cnt++;
-        rows+=`<div class="track-row"><div class="track-num">${cnt}</div><div class="track-info">
-          <div class="tt">${esc(it.title||'(tema)')} <span style="font-weight:500;color:var(--ink-soft)">· ${esc(it.format||'')}${it.post_date?' · 📅 '+esc(fmtDate(it.post_date)):''}</span></div>
-          ${it.description&&it.description.trim()?`<div class="track-line" style="color:var(--ink-faint);font-size:12px">${esc(it.description)}</div>`:''}
-          ${it.note&&it.note.trim()?`<div class="track-note" style="display:flex;align-items:flex-start;gap:8px">↳ comentário do cliente: "${esc(it.note)}" <button class="icon-btn" style="width:22px;height:22px;font-size:12px;color:var(--red);flex-shrink:0" title="Apagar este comentário" onclick="clearNote('${it.id}','${p.id}')">✕</button></div>`:''}</div></div>`;
+        rows+=`<div class="tk-post">
+          <div class="tk-post-h"><span class="tk-num">${cnt}</span>
+            <div class="tk-title">${esc(it.title||'(tema)')}</div>
+            <div class="tk-meta">${it.format?esc(it.format):''}${it.post_date?' · 📅 '+esc(fmtDate(it.post_date)):''}</div></div>
+          ${it.description&&it.description.trim()?`<div class="tk-desc">${esc(it.description)}</div>`:''}
+          ${it.note&&it.note.trim()?`<div class="tk-note">↳ comentário do cliente: "${esc(it.note)}" <button class="icon-btn no-print" style="width:22px;height:22px;font-size:12px;color:var(--red);flex-shrink:0" title="Apagar este comentário" onclick="clearNote('${it.id}','${p.id}')">✕</button></div>`:''}
+        </div>`;
       }
     });
+    if(openWeek) rows+=`</div>`;
     const body=`
       <div class="page-head"><div>
         <div class="crumb"><a onclick="renderClientPage('${c.id}')">${esc(c.name)}</a> / <a onclick="renderProject('${p.id}')">${esc(p.title)}</a> / <b>Respostas</b></div>
@@ -1189,7 +1211,9 @@ async function drawTracking(projectId){
           <button class="btn btn-ghost btn-sm" onclick="clearMonthStatus('${p.id}')" ${stt?'':'disabled'}>↺ Limpar status</button>
           <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-line)" onclick="clearAllResponses('${p.id}')">🗑 Limpar todas as respostas</button>
         </div></div>
-      <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem linhas.</p></div>'}</div>`;
+      <div class="tk-doc">
+        <div class="tk-doc-title no-screen">${esc(c.name)} · ${esc(p.title)}${p.period?' — '+esc(p.period):''}</div>
+        ${rows||'<div class="empty"><p>Sem linhas.</p></div>'}</div>`;
     return shell(body);
   }
 
