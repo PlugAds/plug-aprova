@@ -524,7 +524,20 @@ async function loadAll(){
   return true;
 }
 async function projectStats(projectId){
-  // conta itens e decisões p/ progresso
+  const p=S.projects.find(x=>x.id===projectId);
+  // MENSAL: a "unidade" de aprovação é o mês inteiro + comentários contam como ajustes
+  if(p&&p.mode==='mensal'){
+    const { data:items } = await sb.from('items').select('id,note,row_type').eq('project_id',projectId);
+    const notes=(items||[]).filter(i=>i.row_type!=='week'&&i.note&&i.note.trim()).length;
+    const st=p.month_status;
+    // total=1 (o mês), done=1 se já avaliado
+    const done = st?1:0;
+    const appr = st==='approved'?1:0;
+    // ajustes pedidos no mês = nº de comentários (ou ao menos 1 se pediu revisão sem comentar)
+    let rej = notes; if(st==='rejected'&&notes===0) rej=1;
+    return {total:1, done, appr, rej, monthly:true, notes};
+  }
+  // SEMANAL: conta itens e decisões
   const { data:items } = await sb.from('items').select('id,has_copy,has_creative').eq('project_id',projectId);
   if(!items||!items.length) return {total:0,done:0,appr:0,rej:0};
   const ids=items.map(i=>i.id);
@@ -542,28 +555,43 @@ async function renderDashboard(){
 
   // agrega métricas
   let activeClients=S.clients.length, pend=0, appr=0, rej=0;
-  const recent=[];
   for(const p of S.projects){
     const st=await projectStats(p.id);
-    pend += (st.total-st.done); appr+=st.appr; rej+=st.rej;
+    // só conta como "aguardando" o que está publicado (já foi pro cliente)
+    if(p.published) pend += (st.total-st.done);
+    appr+=st.appr; rej+=st.rej;
   }
-  // aprovações recentes (últimas decisões)
-  const { data:recentDecs } = await sb.from('decisions').select('*').order('updated_at',{ascending:false}).limit(6);
+  // aprovações recentes: decisões (semanal) + status de mês (mensal), unificadas por data
+  const recent=[];
+  const { data:recentDecs } = await sb.from('decisions').select('*').order('updated_at',{ascending:false}).limit(8);
+  for(const d of (recentDecs||[])){
+    const { data:it } = await sb.from('items').select('title,project_id').eq('id',d.item_id).single();
+    let cname='', ccolor='#999';
+    if(it){ const pr=S.projects.find(x=>x.id===it.project_id); const cl=pr&&S.clients.find(x=>x.id===pr.client_id); if(cl){cname=cl.name;ccolor=cl.color;} }
+    recent.push({ when:d.updated_at||'', cname, ccolor, label:(it?it.title:'(item)')+' · '+(d.kind==='copy'?'Copy':'Criativo'), status:d.status });
+  }
+  // mensais avaliados
+  for(const p of S.projects){
+    if(p.mode==='mensal' && p.month_status && p.month_ts){
+      const cl=S.clients.find(x=>x.id===p.client_id);
+      recent.push({ when:p.month_ts, cname:cl?cl.name:'', ccolor:cl?cl.color:'#999', label:p.title+' · Mês', status:p.month_status, monthly:true, sender:p.month_sender });
+    }
+  }
+  recent.sort((a,b)=> (b.when||'').localeCompare(a.when||''));
+  const recentTop=recent.slice(0,6);
   S._pendCount=pend;
 
   const stat=(bar,lbl,num,desc)=>`<div class="stat"><div class="bar" style="background:${bar}"></div><div class="in"><div class="lbl">${lbl}</div><div class="num">${num}</div><div class="desc">${desc}</div></div></div>`;
 
   let recentRows='';
-  if(recentDecs&&recentDecs.length){
-    for(const d of recentDecs){
-      const { data:it } = await sb.from('items').select('title,project_id').eq('id',d.item_id).single();
-      let cname='', ccolor='#999';
-      if(it){ const pr=S.projects.find(x=>x.id===it.project_id); const cl=pr&&S.clients.find(x=>x.id===pr.client_id); if(cl){cname=cl.name;ccolor=cl.color;} }
-      const ok=d.status==='approved';
+  if(recentTop.length){
+    for(const r of recentTop){
+      const ok=r.status==='approved';
+      const stLabel = r.monthly ? (ok?'✓ Mês aprovado':'✕ Revisão') : (ok?'✓ Aprovado':'✕ Ajuste');
       recentRows+=`<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line-soft)">
-        <div style="width:26px;height:26px;border-radius:7px;background:${ccolor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${esc((cname||'?').slice(0,2).toUpperCase())}</div>
-        <div style="font-size:12.5px;flex:1">${esc(cname)} · <span style="color:var(--ink-faint)">${esc(it?it.title:'(item)')} · ${d.kind==='copy'?'Copy':'Criativo'}</span></div>
-        <span class="sb ${ok?'approved':'rejected'}">${ok?'✓ Aprovado':'✕ Ajuste'}</span></div>`;
+        <div style="width:26px;height:26px;border-radius:7px;background:${r.ccolor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${esc((r.cname||'?').slice(0,2).toUpperCase())}</div>
+        <div style="font-size:12.5px;flex:1">${esc(r.cname)} · <span style="color:var(--ink-faint)">${esc(r.label)}</span></div>
+        <span class="sb ${ok?'approved':'rejected'}">${stLabel}</span></div>`;
     }
   } else { recentRows=`<div style="padding:16px 0;color:var(--ink-faint);font-size:13px">Nenhuma resposta ainda. Publique um cronograma e envie o link ao cliente.</div>`; }
 
@@ -572,7 +600,7 @@ async function renderDashboard(){
       <button class="btn btn-accent" onclick="editClient()">＋ Novo cliente</button></div>
     <div class="stats">
       ${stat('var(--accent)','CLIENTES ATIVOS',activeClients,'Cadastrados no sistema')}
-      ${stat('var(--amber-dot)','AGUARDANDO APROVAÇÃO',pend,'Itens pendentes do cliente')}
+      ${stat('var(--amber-dot)','AGUARDANDO APROVAÇÃO',pend,'Pendentes do cliente (semanal + mês)')}
       ${stat('var(--green)','APROVADOS',appr,'Liberados para publicar')}
       ${stat('var(--red)','AJUSTES PEDIDOS',rej,'Reprovados com observação')}
     </div>
