@@ -587,11 +587,18 @@ async function renderDashboard(){
     if(it){ const pr=S.projects.find(x=>x.id===it.project_id); const cl=pr&&S.clients.find(x=>x.id===pr.client_id); if(cl){cname=cl.name;ccolor=cl.color;} }
     recent.push({ when:d.updated_at||'', cname, ccolor, label:(it?it.title:'(item)')+' · '+(d.kind==='copy'?'Copy':'Criativo'), status:d.status });
   }
-  // mensais avaliados
+  // mensais e projetos: usar o status real por post (post_status), não o month_status antigo
   for(const p of S.projects){
-    if(p.mode==='mensal' && p.month_status && p.month_ts){
+    if((p.mode==='mensal') && p.month_ts){
       const cl=S.clients.find(x=>x.id===p.client_id);
-      recent.push({ when:p.month_ts, cname:cl?cl.name:'', ccolor:cl?cl.color:'#999', label:p.title+' · Mês', status:p.month_status, monthly:true, sender:p.month_sender });
+      const { data:its }=await sb.from('items').select('row_type,post_status').eq('project_id',p.id);
+      const posts=(its||[]).filter(i=>i.row_type!=='week');
+      const ap=posts.filter(i=>i.post_status==='approved').length;
+      const rj=posts.filter(i=>i.post_status==='rejected').length;
+      if(ap+rj===0) continue; // ainda não avaliado, não mostra
+      const allApproved = rj===0 && ap===posts.length;
+      const label = p.title+' · '+(allApproved?'Mês aprovado':`${ap}✓ / ${rj}✕`);
+      recent.push({ when:p.month_ts, cname:cl?cl.name:'', ccolor:cl?cl.color:'#999', label, status:allApproved?'approved':'rejected', monthly:true });
     }
   }
   recent.sort((a,b)=> (b.when||'').localeCompare(a.when||''));
@@ -604,7 +611,7 @@ async function renderDashboard(){
   if(recentTop.length){
     for(const r of recentTop){
       const ok=r.status==='approved';
-      const stLabel = r.monthly ? (ok?'✓ Mês aprovado':'✕ Revisão') : (ok?'✓ Aprovado':'✕ Ajuste');
+      const stLabel = r.monthly ? (ok?'✓ Aprovado':'◑ Parcial/Revisão') : (ok?'✓ Aprovado':'✕ Ajuste');
       recentRows+=`<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line-soft)">
         <div style="width:26px;height:26px;border-radius:7px;background:${r.ccolor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${esc((r.cname||'?').slice(0,2).toUpperCase())}</div>
         <div style="font-size:12.5px;flex:1">${esc(r.cname)} · <span style="color:var(--ink-faint)">${esc(r.label)}</span></div>
