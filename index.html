@@ -546,15 +546,12 @@ async function projectStats(projectId){
   const p=S.projects.find(x=>x.id===projectId);
   // MENSAL: a "unidade" de aprovação é o mês inteiro + comentários contam como ajustes
   if(p&&p.mode==='mensal'){
-    const { data:items } = await sb.from('items').select('id,note,row_type').eq('project_id',projectId);
-    const notes=(items||[]).filter(i=>i.row_type!=='week'&&i.note&&i.note.trim()).length;
-    const st=p.month_status;
-    // total=1 (o mês), done=1 se já avaliado
-    const done = st?1:0;
-    const appr = st==='approved'?1:0;
-    // ajustes pedidos no mês = nº de comentários (ou ao menos 1 se pediu revisão sem comentar)
-    let rej = notes; if(st==='rejected'&&notes===0) rej=1;
-    return {total:1, done, appr, rej, monthly:true, notes};
+    const { data:items } = await sb.from('items').select('id,note,row_type,post_status').eq('project_id',projectId);
+    const posts=(items||[]).filter(i=>i.row_type!=='week');
+    const appr=posts.filter(i=>i.post_status==='approved').length;
+    const rej=posts.filter(i=>i.post_status==='rejected').length;
+    const done=appr+rej;
+    return {total:posts.length, done, appr, rej, monthly:true};
   }
   // SEMANAL: conta itens e decisões
   const { data:items } = await sb.from('items').select('id,has_copy,has_creative').eq('project_id',projectId);
@@ -1221,8 +1218,15 @@ async function drawTracking(projectId){
   const { data:items } = await sb.from('items').select('*').eq('project_id',projectId).order('sort');
 
   if(p.mode==='mensal'){
-    const stt=p.month_status;
-    const badge=stt==='approved'?'<span class="sb approved">✓ Mês aprovado</span>':stt==='rejected'?'<span class="sb rejected">✕ Revisão solicitada</span>':'<span class="sb pending">○ Aguardando aprovação</span>';
+    const posts=(items||[]).filter(it=>it.row_type!=='week');
+    const nAp=posts.filter(it=>it.post_status==='approved').length;
+    const nRj=posts.filter(it=>it.post_status==='rejected').length;
+    const nPend=posts.length-nAp-nRj;
+    const stt=p.month_status; // 'responded' quando o cliente enviou
+    const enviado = stt==='responded' || nAp+nRj>0;
+    const badge = stt==='responded'
+      ? '<span class="sb approved">✓ Respostas enviadas</span>'
+      : (nAp+nRj>0 ? '<span class="sb pending">◑ Em avaliação</span>' : '<span class="sb pending">○ Aguardando avaliação</span>');
     const withNotes=(items||[]).filter(it=>it.row_type!=='week'&&it.note&&it.note.trim());
     let rows='', cnt=0, openWeek=false;
     (items||[]).forEach(it=>{
@@ -1232,10 +1236,12 @@ async function drawTracking(projectId){
         openWeek=true; cnt=0;
       } else {
         cnt++;
+        const psb = it.post_status==='approved'?'<span class="sb approved">✓ Aprovado</span>':it.post_status==='rejected'?'<span class="sb rejected">✕ Reprovado</span>':'<span class="sb pending">○ Pendente</span>';
         rows+=`<div class="tk-post">
           <div class="tk-post-h"><span class="tk-num">${cnt}</span>
             <div class="tk-title">${esc(it.title||'(tema)')}</div>
-            <div class="tk-meta">${it.format?esc(it.format):''}${it.post_date?' · 📅 '+esc(fmtDate(it.post_date)):''}</div></div>
+            <div class="tk-meta">${it.format?esc(it.format):''}${it.post_date?' · 📅 '+esc(fmtDate(it.post_date)):''}</div>
+            <div style="flex:1"></div>${psb}</div>
           ${it.description&&it.description.trim()?`<div class="tk-desc">${esc(it.description)}</div>`:''}
           ${it.note&&it.note.trim()?`<div class="tk-note">↳ comentário do cliente: "${esc(it.note)}" <button class="icon-btn no-print" style="width:22px;height:22px;font-size:12px;color:var(--red);flex-shrink:0" title="Apagar este comentário" onclick="clearNote('${it.id}','${p.id}')">✕</button></div>`:''}
         </div>`;
@@ -1252,7 +1258,7 @@ async function drawTracking(projectId){
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
           <div style="font-size:15px;font-weight:700">Status do mês:</div> ${badge}
           ${p.month_ts?`<span style="font-size:12.5px;color:var(--ink-faint)">${esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</span>`:''}
-          <div style="flex:1"></div><div style="font-size:13px;color:var(--ink-soft)">${withNotes.length} tema(s) com observação</div></div>
+          <div style="flex:1"></div><div style="font-size:13px;color:var(--ink-soft)">✓ ${nAp} aprovados · ✕ ${nRj} reprovados · ○ ${nPend} pendentes</div></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line-soft)">
           <span style="font-size:12px;font-weight:700;color:var(--ink-faint);align-self:center;text-transform:uppercase;letter-spacing:.04em">Gerenciar:</span>
           <button class="btn btn-ghost btn-sm" onclick="clearMonthStatus('${p.id}')" ${stt?'':'disabled'}>↺ Limpar status</button>
@@ -1294,9 +1300,11 @@ async function drawTracking(projectId){
 
 /* ---------- gerência das respostas (agência) ---------- */
 async function clearMonthStatus(pid){
-  const { error }=await sb.from('projects').update({month_status:null,month_sender:null,month_ts:null}).eq('id',pid);
-  if(error){ console.error(error); return toast('Erro ao limpar status'); }
-  toast('Status do mês limpo'); drawTracking(pid);
+  await sb.from('projects').update({month_status:null,month_sender:null,month_ts:null}).eq('id',pid);
+  // limpa também as aprovações por post
+  const { data:its }=await sb.from('items').select('id').eq('project_id',pid);
+  for(const it of (its||[])){ await sb.from('items').update({post_status:null}).eq('id',it.id); }
+  toast('Status limpo'); drawTracking(pid);
 }
 function clearNote(itemId,pid){
   confirmDialog('Apagar comentário?','O comentário do cliente neste item será removido. Ele poderá comentar de novo pelo link.',async()=>{
@@ -1309,14 +1317,14 @@ function clearAllResponses(pid){
   const p=S.projects.find(x=>x.id===pid);
   const isMonthly=p&&p.mode==='mensal';
   confirmDialog('Limpar todas as respostas?',
-    isMonthly?'Remove a aprovação do mês e <b>todos os comentários</b> do cliente. O planejamento (semanas e posts) é mantido. O cliente volta a ver tudo em branco para responder de novo.'
+    isMonthly?'Remove <b>todas as aprovações por post e os comentários</b> do cliente. O planejamento (semanas e posts) é mantido. O cliente volta a ver tudo em branco para responder de novo.'
              :'Remove <b>todas as aprovações/reprovações e observações</b> do cliente. Os posts são mantidos. O cliente volta a ver tudo em branco para responder de novo.',
     async()=>{
       if(isMonthly){
         await sb.from('projects').update({month_status:null,month_sender:null,month_ts:null}).eq('id',pid);
-        // limpa notes dos itens
+        // limpa notes E status por post
         const { data:its }=await sb.from('items').select('id').eq('project_id',pid);
-        for(const it of (its||[])){ await sb.from('items').update({note:null}).eq('id',it.id); }
+        for(const it of (its||[])){ await sb.from('items').update({note:null,post_status:null}).eq('id',it.id); }
       } else {
         const { data:its }=await sb.from('items').select('id').eq('project_id',pid);
         const ids=(its||[]).map(i=>i.id);
@@ -1593,15 +1601,19 @@ function renderClientMonthly(c,p,items,picker){
   const fmtChip=(f)=> f?`<span class="chip chip-ink">${esc(f)}</span>`:'';
   const flushG=()=>{
     if(!curWeek) return;
-    const postsHTML=wPosts.map((it,i)=>`<div class="post-card" style="margin-bottom:14px">
+    const postsHTML=wPosts.map((it,i)=>{ const ps=it.post_status; return `<div class="post-card" style="margin-bottom:14px" id="pc-${it.id}">
       <div class="post-head"><span class="pnum" style="background:${accent}">${i+1}</span>
         <div class="pinfo"><h3>${esc(it.title||'Post '+(i+1))}</h3>
           <p>${fmtChip(it.format)} ${it.post_date?'· 📅 '+esc(fmtDate(it.post_date)):''}</p></div></div>
       ${it.description&&it.description.trim()?`<div class="blk"><div class="copy-block" style="border-left-color:${accent}"><p>${esc(it.description)}</p></div></div>`:''}
       <div class="blk" style="border-top:1px solid var(--line-soft)">
         <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);display:block;margin-bottom:7px">✏️ Comentário neste post (opcional)</label>
-        <textarea onchange="saveMonthNote('${it.id}',this.value)" placeholder="Quer ajustar algo? Escreva aqui." style="width:100%;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;font-size:13.5px;min-height:50px;resize:vertical;background:#fff">${esc(it.note||'')}</textarea></div>
-    </div>`).join('');
+        <textarea onchange="saveMonthNote('${it.id}',this.value)" placeholder="Quer ajustar algo? Escreva aqui." style="width:100%;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;font-size:13.5px;min-height:50px;resize:vertical;background:#fff">${esc(it.note||'')}</textarea>
+        <div style="display:flex;gap:10px;margin-top:12px">
+          <button class="b-ap ${ps==='approved'?'on':''}" id="ap-${it.id}" style="padding:9px 18px;font-size:13px" onclick="decidePost('${it.id}','approved',${JSON.stringify(accent)})">✓ Aprovar</button>
+          <button class="b-rj ${ps==='rejected'?'on':''}" id="rj-${it.id}" style="padding:9px 18px;font-size:13px" onclick="decidePost('${it.id}','rejected',${JSON.stringify(accent)})">✕ Reprovar</button>
+        </div></div>
+    </div>`; }).join('');
     groupsHTML+=`<div style="margin-bottom:24px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div class="ico" style="width:32px;height:32px;border-radius:9px;background:${accent};color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px">🗂️</div>
@@ -1616,28 +1628,41 @@ function renderClientMonthly(c,p,items,picker){
   document.querySelector('.c-wrap').innerHTML=`
     ${picker}
     <div class="secbar"><div class="ico" style="background:${accent}">🗓️</div><h3>Planejamento do mês</h3></div>
-    <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Veja o planejamento do mês, semana a semana. Se quiser ajustar algo, comente no post. No fim, aprove o plano ou peça revisão.</p>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Veja o planejamento do mês, semana a semana. Em cada post, aprove ou reprove e, se quiser, deixe um comentário.</p>
     ${groupsHTML||'<div class="empty"><p>Planejamento ainda em montagem.</p></div>'}
     <p style="font-size:12.5px;color:var(--ink-faint);text-align:right;margin:4px 0 20px">Total: <b>${totalPosts} posts</b> no mês</p>
 
     <div class="send-block"><div class="send-inner">
-      <div class="si">🗓️</div><h2>Aprovação do mês</h2>
-      <p>Aprove o planejamento ou peça revisão. Suas observações por tema já ficam salvas.</p>
-      <div class="namewrap"><label>Seu nome</label><input id="cSenderM" placeholder="Quem está aprovando?" value="${esc(p.month_sender||'')}" onchange="S._mSender=this.value"></div>
-      <div style="display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap">
-        <button class="b-ap ${st==='approved'?'on':''}" id="mAp" style="padding:11px 22px;font-size:14px" onclick="decideMonth('${p.id}','approved')">✓ Aprovar o mês</button>
-        <button class="b-rj ${st==='rejected'?'on':''}" id="mRj" style="padding:11px 22px;font-size:14px" onclick="decideMonth('${p.id}','rejected')">✕ Pedir revisão</button>
-      </div>
-      <div style="display:flex;justify-content:center;margin-top:14px">
-        <button class="btn btn-wa" onclick="cliWhatsapp()">📲 Enviar resumo no WhatsApp</button>
-      </div>
-      <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px">
-        <div id="mStatus" style="font-size:13px;font-weight:600;color:${st==='approved'?'var(--green)':st==='rejected'?'var(--red)':'var(--ink-faint)'}">
-          ${st==='approved'?'✓ Mês aprovado'+(p.month_ts?' em '+esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):''):st==='rejected'?'✕ Revisão solicitada'+(p.month_ts?' em '+esc(new Date(p.month_ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):''):'Aguardando sua avaliação'}</div>
+      <div class="si">📤</div><h2>Finalizar</h2>
+      <p>Suas respostas e comentários são salvos automaticamente. Confirme seu nome e envie para concluir.</p>
+      <div class="namewrap"><label>Seu nome</label><input id="cSenderM" placeholder="Quem está avaliando?" value="${esc(p.month_sender||'')}" onchange="S._mSender=this.value"></div>
+      <div class="send-btns" style="margin-top:18px">
+        <button class="btn btn-accent" style="padding:13px 36px;font-size:15px" onclick="finalizarEnvioMes('${p.id}')">✓ Enviar respostas</button>
+        <button class="btn btn-wa" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button>
       </div>
       </div></div>
     <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
   S._mSender=p.month_sender||'';
+}
+async function decidePost(itemId,status,accent){
+  const it=S.cItems.find(x=>x.id===itemId);
+  const novo = (it&&it.post_status===status)?null:status; // clicar de novo desmarca
+  if(it) it.post_status=novo;
+  const ap=$('ap-'+itemId), rj=$('rj-'+itemId);
+  if(ap) ap.classList.toggle('on',novo==='approved');
+  if(rj) rj.classList.toggle('on',novo==='rejected');
+  const { error }=await sb.from('items').update({post_status:novo}).eq('id',itemId);
+  if(error){ console.error(error); toast('Erro ao salvar'); }
+}
+async function finalizarEnvioMes(pid){
+  const nm=$('cSenderM')&&$('cSenderM').value.trim();
+  if(!nm) return toast('Por favor, informe seu nome antes de enviar');
+  S._mSender=nm;
+  // marca quem enviou e quando (o status do mês passa a refletir "respondido")
+  await sb.from('projects').update({month_sender:nm, month_ts:new Date().toISOString(), month_status:'responded'}).eq('id',pid);
+  const sub=document.querySelector('.send-inner');
+  if(sub){ sub.innerHTML=`<div class="si">✅</div><h2>Respostas enviadas!</h2><p style="max-width:420px;margin:8px auto 0">Tudo certo, ${esc(nm)}. A ${esc(CFG.agencyName)} já recebeu suas aprovações e comentários. Você pode fechar esta página.</p>`; }
+  toast('Respostas enviadas com sucesso!');
 }
 async function saveMonthNote(itemId,v){
   const it=S.cItems.find(x=>x.id===itemId); if(it) it.note=v;
@@ -1763,7 +1788,8 @@ function buildClientText(){
     S.cItems.forEach((it)=>{
       if(it.row_type==='week'){ t+=`\n${'─'.repeat(34)}\n🗂️ *${it.title||it.week||'Semana'}*\n`; }
       else {
-        t+=`\n*${it.title||'(tema)'}*\n${it.format||''}${it.post_date?' · '+fmtDate(it.post_date):''}\n`;
+        const ps = it.post_status==='approved'?'✅ APROVADO':it.post_status==='rejected'?'❌ REPROVADO':'⏳ PENDENTE';
+        t+=`\n*${it.title||'(tema)'}* — ${ps}\n${it.format||''}${it.post_date?' · '+fmtDate(it.post_date):''}\n`;
         if(it.description&&it.description.trim()) t+=`${it.description.trim()}\n`;
         if(it.note&&it.note.trim()) t+=`\n✏️ *Ajuste pedido:* ${it.note.trim()}\n`;
       }
