@@ -1611,8 +1611,8 @@ function renderClientMonthly(c,p,items,picker){
         <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);display:block;margin-bottom:7px">✏️ Comentário neste post (opcional)</label>
         <textarea onchange="saveMonthNote('${it.id}',this.value)" placeholder="Quer ajustar algo? Escreva aqui." style="width:100%;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;font-size:13.5px;min-height:50px;resize:vertical;background:#fff">${esc(it.note||'')}</textarea>
         <div style="display:flex;gap:10px;margin-top:12px">
-          <button class="b-ap ${ps==='approved'?'on':''}" id="ap-${it.id}" style="padding:9px 18px;font-size:13px" onclick="decidePost('${it.id}','approved',${JSON.stringify(accent)})">✓ Aprovar</button>
-          <button class="b-rj ${ps==='rejected'?'on':''}" id="rj-${it.id}" style="padding:9px 18px;font-size:13px" onclick="decidePost('${it.id}','rejected',${JSON.stringify(accent)})">✕ Reprovar</button>
+          <button class="b-ap ${ps==='approved'?'on':''}" id="ap-${it.id}" style="padding:9px 18px;font-size:13px" onclick="decidePost('${it.id}','approved')">✓ Aprovar</button>
+          <button class="b-rj ${ps==='rejected'?'on':''}" id="rj-${it.id}" style="padding:9px 18px;font-size:13px" onclick="decidePost('${it.id}','rejected')">✕ Reprovar</button>
         </div></div>
     </div>`; }).join('');
     groupsHTML+=`<div style="margin-bottom:24px">
@@ -1645,7 +1645,7 @@ function renderClientMonthly(c,p,items,picker){
     <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
   S._mSender=p.month_sender||'';
 }
-async function decidePost(itemId,status,accent){
+async function decidePost(itemId,status){
   const it=S.cItems.find(x=>x.id===itemId);
   const jaEra = it&&it.post_status===status;
   // REPROVAR exige comentário de ajuste
