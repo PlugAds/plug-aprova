@@ -1030,12 +1030,12 @@ function projectEditorBody(p,items){
         <textarea onchange="upd('${it.id}','description',this.value)" placeholder="Descreva a entrega, a tarefa ou o que precisa ser aprovado…" style="min-height:90px">${esc(it.description||'')}</textarea></div>
       <div class="field" style="margin-bottom:0"><label>Anexo (imagem ou vídeo) — opcional</label>
         <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-${it.id}').click()">📤 Enviar imagem ou vídeo</button>
-          <input type="file" id="file-${it.id}" accept="image/*,video/*" style="display:none" onchange="uploadImg('${it.id}',this)">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-${it.id}').click()">📤 Enviar imagens ou vídeo</button>
+          <input type="file" id="file-${it.id}" accept="image/*,video/*" multiple style="display:none" onchange="uploadImg('${it.id}',this)">
           <span style="font-size:12px;color:var(--ink-faint)">ou</span>
           <input value="${esc(it.creative_url||'')}" onchange="upd('${it.id}','creative_url',this.value);refreshPrev('${it.id}',this.value)" placeholder="cole uma URL" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-          ${src?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearImg('${it.id}')">Remover</button>`:''}</div>
-        <p class="hint" style="margin-top:6px">Upload de até 50MB. Para arquivos maiores, cole um link (Drive/YouTube/etc.).</p>
+          ${src?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearImg('${it.id}')">Remover tudo</button>`:''}</div>
+        <p class="hint" style="margin-top:6px">Selecione várias imagens de uma vez para montar um carrossel. Upload de até 50MB por vídeo. Para arquivos maiores, cole um link (Drive/YouTube/etc.).</p>
         <div class="creative-prev" id="prev-${it.id}">${src?creativeMediaHTML(it):creativeEmptyHTML(it,'Sem anexo. Envie um arquivo, cole uma URL, ou deixe vazio.')}</div></div>
     </div></div>`; }).join('');
   return `
@@ -1076,12 +1076,12 @@ function itemEditorHTML(it,i){
       <div class="field"><label>Hashtags (opcional)</label><input value="${esc(it.hashtags||'')}" onchange="upd('${it.id}','hashtags',this.value)" placeholder="#LogisticaIntegrada #Santos"></div>
       <div class="field"><label>Criativo</label>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-${it.id}').click()">📤 Enviar imagem ou vídeo</button>
-          <input type="file" id="file-${it.id}" accept="image/*,video/*" style="display:none" onchange="uploadImg('${it.id}',this)">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-${it.id}').click()">📤 Enviar imagens ou vídeo</button>
+          <input type="file" id="file-${it.id}" accept="image/*,video/*" multiple style="display:none" onchange="uploadImg('${it.id}',this)">
           <span style="font-size:12px;color:var(--ink-faint)">ou</span>
           <input value="${esc(it.creative_url||'')}" onchange="upd('${it.id}','creative_url',this.value);refreshPrev('${it.id}',this.value)" placeholder="cole uma URL de imagem ou vídeo" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-          ${src?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearImg('${it.id}')">Remover</button>`:''}</div>
-        <p class="hint" style="margin-top:6px">Upload de até 50MB. Para vídeos maiores (reels longos), hospede no Drive/YouTube/etc. e cole o link acima.</p>
+          ${src?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearImg('${it.id}')">Remover tudo</button>`:''}</div>
+        <p class="hint" style="margin-top:6px">Selecione várias imagens de uma vez para montar um carrossel. Upload de até 50MB por vídeo (reels longos hospede no Drive/YouTube/etc. e cole o link acima).</p>
         <div class="creative-prev" id="prev-${it.id}">${src?creativeMediaHTML(it):creativeEmptyHTML(it,'Sem criativo. Envie uma imagem ou vídeo (reels), cole uma URL, ou deixe vazio se ainda em produção.')}</div></div>
     </div></div>`;
 }
@@ -1139,54 +1139,79 @@ function refreshPrev(id,url){ const el=$('prev-'+id); if(!el)return;
   const isVid=/\.(mp4|mov|webm|m4v|ogg)$/.test(url.toLowerCase().split('?')[0]);
   el.innerHTML=isVid?`<video src="${esc(url)}" controls playsinline style="width:100%;max-height:360px;background:#000"></video>`:`<img src="${esc(url)}">`;
 }
-async function clearImg(id){ await sb.from('items').update({creative_url:null,creative_type:null}).eq('id',id); renderProject(S.projectId); }
-
-/* upload p/ Supabase Storage */
-function uploadImg(id,input){
-  const f=input.files&&input.files[0]; if(!f)return;
-  const isVideo=f.type.startsWith('video/');
-  const isImage=f.type.startsWith('image/');
-  if(!isVideo&&!isImage) return toast('Selecione uma imagem ou vídeo');
-
-  if(isVideo){
-    // limite de segurança pro plano free do Storage
-    const MB=f.size/1048576;
-    if(MB>50) return toast('Vídeo de '+MB.toFixed(0)+'MB excede o limite de 50MB. Para vídeos maiores, hospede em outro lugar e cole a URL no campo ao lado.');
-    toast('Enviando vídeo… pode levar alguns segundos');
-    (async()=>{
-      const ext=(f.name.split('.').pop()||'mp4').toLowerCase().replace(/[^a-z0-9]/g,'')||'mp4';
-      const path=S.projectId+'/'+id+'-'+Date.now()+'.'+ext;
-      const { error }=await sb.storage.from(CFG.bucket).upload(path,f,{contentType:f.type,upsert:true});
-      if(error){ console.error(error); return toast('Erro no upload: '+error.message); }
-      const { data:pub }=sb.storage.from(CFG.bucket).getPublicUrl(path);
-      await sb.from('items').update({creative_url:pub.publicUrl,creative_type:'video'}).eq('id',id);
-      renderProject(S.projectId); toast('Vídeo adicionado');
-    })();
-    return;
+async function clearImg(id){
+  const { error }=await sb.from('items').update({creative_url:null,creative_type:null,creative_urls:[]}).eq('id',id);
+  if(error && ((error.message||'').includes('creative_urls')||error.code==='PGRST204')){
+    await sb.from('items').update({creative_url:null,creative_type:null}).eq('id',id);
   }
+  renderProject(S.projectId);
+}
 
-  toast('Enviando imagem…');
-  const r=new FileReader();
-  r.onload=e=>{
-    const img=new Image();
-    img.onload=async()=>{
-      const maxW=1400; let w=img.width,h=img.height;
-      if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
-      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      cv.toBlob(async(blob)=>{
-        if(!blob) return toast('Falha ao processar imagem');
-        const path=S.projectId+'/'+id+'-'+Date.now()+'.jpg';
-        const { error }=await sb.storage.from(CFG.bucket).upload(path,blob,{contentType:'image/jpeg',upsert:true});
-        if(error){ console.error(error); return toast('Erro no upload: '+error.message); }
-        const { data:pub }=sb.storage.from(CFG.bucket).getPublicUrl(path);
-        await sb.from('items').update({creative_url:pub.publicUrl,creative_type:'image'}).eq('id',id);
-        renderProject(S.projectId); toast('Imagem adicionada');
-      },'image/jpeg',0.85);
-    };
-    img.src=e.target.result;
-  };
-  r.readAsDataURL(f);
+/* lista de mídias do item (suporta carrossel via creative_urls, com fallback pro creative_url único antigo) */
+function creativeList(it){
+  if(!it) return [];
+  let arr=it.creative_urls;
+  if(typeof arr==='string'){ try{ arr=JSON.parse(arr); }catch(e){ arr=null; } }
+  if(Array.isArray(arr)&&arr.length) return arr;
+  return it.creative_url?[{url:it.creative_url,type:it.creative_type||(isVideoCreative(it)?'video':'image')}]:[];
+}
+
+/* upload p/ Supabase Storage — aceita vários arquivos de uma vez (carrossel) */
+async function uploadImg(id,input){
+  const files=input.files?Array.from(input.files):[];
+  if(!files.length) return;
+  toast(files.length>1?`Enviando ${files.length} arquivos…`:'Enviando…');
+  const results=[];
+  for(const f of files){
+    const isVideo=f.type.startsWith('video/');
+    const isImage=f.type.startsWith('image/');
+    if(!isVideo&&!isImage){ toast('Arquivo ignorado (formato não suportado): '+f.name); continue; }
+    if(isVideo){
+      const MB=f.size/1048576;
+      if(MB>50){ toast('Vídeo "'+f.name+'" tem '+MB.toFixed(0)+'MB e excede 50MB — ignorado. Hospede em outro lugar e cole a URL.'); continue; }
+      const ext=(f.name.split('.').pop()||'mp4').toLowerCase().replace(/[^a-z0-9]/g,'')||'mp4';
+      const path=S.projectId+'/'+id+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,7)+'.'+ext;
+      const { error }=await sb.storage.from(CFG.bucket).upload(path,f,{contentType:f.type,upsert:true});
+      if(error){ console.error(error); toast('Erro no upload de '+f.name); continue; }
+      const { data:pub }=sb.storage.from(CFG.bucket).getPublicUrl(path);
+      results.push({url:pub.publicUrl,type:'video'});
+    } else {
+      const blob=await new Promise((resolve)=>{
+        const r=new FileReader();
+        r.onload=e=>{
+          const img=new Image();
+          img.onload=()=>{
+            const maxW=1400; let w=img.width,h=img.height;
+            if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+            const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+            cv.getContext('2d').drawImage(img,0,0,w,h);
+            cv.toBlob(b=>resolve(b),'image/jpeg',0.85);
+          };
+          img.onerror=()=>resolve(null);
+          img.src=e.target.result;
+        };
+        r.onerror=()=>resolve(null);
+        r.readAsDataURL(f);
+      });
+      if(!blob){ toast('Falha ao processar '+f.name); continue; }
+      const path=S.projectId+'/'+id+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,7)+'.jpg';
+      const { error }=await sb.storage.from(CFG.bucket).upload(path,blob,{contentType:'image/jpeg',upsert:true});
+      if(error){ console.error(error); toast('Erro no upload de '+f.name); continue; }
+      const { data:pub }=sb.storage.from(CFG.bucket).getPublicUrl(path);
+      results.push({url:pub.publicUrl,type:'image'});
+    }
+  }
+  if(!results.length) return;
+  const it=S._items.find(x=>x.id===id);
+  const merged=creativeList(it).concat(results);
+  const first=merged[0];
+  const { error:e2 }=await sb.from('items').update({creative_urls:merged,creative_url:first.url,creative_type:first.type,media_cleared:false}).eq('id',id);
+  if(e2 && ((e2.message||'').includes('creative_urls')||e2.code==='PGRST204')){
+    toast('Falta criar a coluna creative_urls no banco (veja instruções) — salvando só a primeira imagem por enquanto.');
+    await sb.from('items').update({creative_url:first.url,creative_type:first.type,media_cleared:false}).eq('id',id);
+  } else if(e2){ console.error(e2); return toast('Erro ao salvar'); }
+  renderProject(S.projectId);
+  toast(results.length>1?`${results.length} arquivos adicionados`:'Arquivo adicionado');
 }
 /* detecta se a URL é vídeo (por extensão) quando creative_type não está definido */
 function isVideoCreative(it){
@@ -1195,9 +1220,15 @@ function isVideoCreative(it){
   return /\.(mp4|mov|webm|m4v|ogg)$/.test(u);
 }
 function creativeMediaHTML(it){
-  const src=it.creative_url||''; if(!src) return '';
-  if(isVideoCreative(it)) return `<video src="${esc(src)}" controls playsinline style="width:100%;max-height:360px;display:block;background:#000"></video>`;
-  return `<img src="${esc(src)}">`;
+  const list=creativeList(it); if(!list.length) return '';
+  const one=(m)=> m.type==='video'
+    ? `<video src="${esc(m.url)}" controls playsinline style="width:100%;max-height:360px;display:block;background:#000"></video>`
+    : `<img src="${esc(m.url)}">`;
+  if(list.length===1) return one(list[0]);
+  return `<div style="display:flex;gap:8px;overflow-x:auto;padding:12px;background:#16161a">${list.map(m=>m.type==='video'
+    ? `<video src="${esc(m.url)}" controls playsinline style="height:220px;border-radius:8px;flex-shrink:0;background:#000"></video>`
+    : `<img src="${esc(m.url)}" style="height:220px;border-radius:8px;flex-shrink:0;object-fit:cover">`).join('')}</div>
+    <div style="text-align:center;font-size:11.5px;color:rgba(255,255,255,.55);padding:4px 0 8px;background:#16161a">🖼️ Carrossel · ${list.length} mídias — arraste para o lado</div>`;
 }
 function creativeEmptyHTML(it,fallback){
   if(it&&it.media_cleared) return '<div class="none">🗑️ Mídia já publicada — arquivo removido do Storage para liberar espaço.</div>';
@@ -1374,17 +1405,18 @@ function finalizeAndClean(pid){
     ()=>runFinalizeAndClean(pid), true);
 }
 async function runFinalizeAndClean(pid){
-  const { data:its, error:e0 } = await sb.from('items').select('id,creative_url').eq('project_id',pid);
+  const { data:its, error:e0 } = await sb.from('items').select('id,creative_url,creative_urls').eq('project_id',pid);
   if(e0){ console.error(e0); return toast('Erro ao buscar itens'); }
-  const list=(its||[]).filter(i=>i.creative_url);
-  const paths=list.map(i=>storagePathFromUrl(i.creative_url)).filter(Boolean);
+  const list=(its||[]).filter(i=>i.creative_url || (creativeList(i).length));
+  const seen=new Set(); const paths=[];
+  for(const it of list){ for(const m of creativeList(it)){ const p=storagePathFromUrl(m.url); if(p&&!seen.has(p)){ seen.add(p); paths.push(p); } } }
   if(paths.length){
     const { error }=await sb.storage.from(CFG.bucket).remove(paths);
     if(error){ console.error(error); return toast('Erro ao apagar arquivos: '+error.message); }
   }
   for(const it of list){
-    const { error }=await sb.from('items').update({creative_url:null,creative_type:null,media_cleared:true}).eq('id',it.id);
-    if(error && !((error.message||'').includes('media_cleared')||error.code==='PGRST204')){ console.error(error); }
+    const { error }=await sb.from('items').update({creative_url:null,creative_type:null,creative_urls:[],media_cleared:true}).eq('id',it.id);
+    if(error && !((error.message||'').includes('media_cleared')||(error.message||'').includes('creative_urls')||error.code==='PGRST204')){ console.error(error); }
   }
   const { error:e1 }=await sb.from('projects').update({media_cleared_at:new Date().toISOString()}).eq('id',pid);
   if(e1 && ((e1.message||'').includes('media_cleared_at')||e1.code==='PGRST204')){
