@@ -1036,7 +1036,7 @@ function projectEditorBody(p,items){
           <input value="${esc(it.creative_url||'')}" onchange="upd('${it.id}','creative_url',this.value);refreshPrev('${it.id}',this.value)" placeholder="cole uma URL" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
           ${src?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearImg('${it.id}')">Remover</button>`:''}</div>
         <p class="hint" style="margin-top:6px">Upload de até 50MB. Para arquivos maiores, cole um link (Drive/YouTube/etc.).</p>
-        <div class="creative-prev" id="prev-${it.id}">${src?creativeMediaHTML(it):'<div class="none">Sem anexo. Envie um arquivo, cole uma URL, ou deixe vazio.</div>'}</div></div>
+        <div class="creative-prev" id="prev-${it.id}">${src?creativeMediaHTML(it):creativeEmptyHTML(it,'Sem anexo. Envie um arquivo, cole uma URL, ou deixe vazio.')}</div></div>
     </div></div>`; }).join('');
   return `
     <div class="secbar"><div class="ico">📦</div><h3>Itens do projeto</h3><div class="spacer"></div>
@@ -1082,7 +1082,7 @@ function itemEditorHTML(it,i){
           <input value="${esc(it.creative_url||'')}" onchange="upd('${it.id}','creative_url',this.value);refreshPrev('${it.id}',this.value)" placeholder="cole uma URL de imagem ou vídeo" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
           ${src?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearImg('${it.id}')">Remover</button>`:''}</div>
         <p class="hint" style="margin-top:6px">Upload de até 50MB. Para vídeos maiores (reels longos), hospede no Drive/YouTube/etc. e cole o link acima.</p>
-        <div class="creative-prev" id="prev-${it.id}">${src?creativeMediaHTML(it):'<div class="none">Sem criativo. Envie uma imagem ou vídeo (reels), cole uma URL, ou deixe vazio se ainda em produção.</div>'}</div></div>
+        <div class="creative-prev" id="prev-${it.id}">${src?creativeMediaHTML(it):creativeEmptyHTML(it,'Sem criativo. Envie uma imagem ou vídeo (reels), cole uma URL, ou deixe vazio se ainda em produção.')}</div></div>
     </div></div>`;
 }
 
@@ -1199,6 +1199,10 @@ function creativeMediaHTML(it){
   if(isVideoCreative(it)) return `<video src="${esc(src)}" controls playsinline style="width:100%;max-height:360px;display:block;background:#000"></video>`;
   return `<img src="${esc(src)}">`;
 }
+function creativeEmptyHTML(it,fallback){
+  if(it&&it.media_cleared) return '<div class="none">🗑️ Mídia já publicada — arquivo removido do Storage para liberar espaço.</div>';
+  return `<div class="none">${fallback}</div>`;
+}
 
 /* publicar */
 async function togglePublish(id,cur){
@@ -1271,6 +1275,9 @@ async function drawTracking(projectId){
           <span style="font-size:12px;font-weight:700;color:var(--ink-faint);align-self:center;text-transform:uppercase;letter-spacing:.04em">Gerenciar:</span>
           <button class="btn btn-ghost btn-sm" onclick="clearMonthStatus('${p.id}')" ${stt?'':'disabled'}>↺ Limpar status</button>
           <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-line)" onclick="clearAllResponses('${p.id}')">🗑 Limpar todas as respostas</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-line)" onclick="finalizeAndClean('${p.id}')">🗑️ Finalizar e apagar mídias</button>
+        </div>
+        ${p.media_cleared_at?`<p style="font-size:12px;color:var(--ink-faint);margin-top:8px">🗑️ Mídias apagadas do Storage em ${esc(new Date(p.media_cleared_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</p>`:''}
         </div></div>
       <div class="tk-doc">
         <div class="tk-doc-title no-screen">${esc(c.name)} · ${esc(p.title)}${p.period?' — '+esc(p.period):''}</div>
@@ -1298,7 +1305,9 @@ async function drawTracking(projectId){
       <h2>Acompanhamento</h2><p>Atualiza sozinho a cada 6s${sender?` · respondido por <b>${esc(sender)}</b>`:''}</p></div>
       <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="if(S.pollTimer)clearInterval(S.pollTimer);renderProject('${p.id}')">← Editor</button>
       <button class="btn btn-ghost" onclick="window.print()">🖨️ PDF</button>
-      <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red-line)" onclick="clearAllResponses('${p.id}')" ${done>0?'':'disabled'}>🗑 Limpar respostas</button></div></div>
+      <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red-line)" onclick="clearAllResponses('${p.id}')" ${done>0?'':'disabled'}>🗑 Limpar respostas</button>
+      <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red-line)" onclick="finalizeAndClean('${p.id}')">🗑️ Finalizar e apagar mídias</button></div></div>
+    ${p.media_cleared_at?`<p style="font-size:12px;color:var(--ink-faint);margin:-14px 0 14px">🗑️ Mídias apagadas do Storage em ${esc(new Date(p.media_cleared_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</p>`:''}
     <div class="stats">
       <div class="stat"><div class="bar" style="background:var(--accent)"></div><div class="in"><div class="lbl">PROGRESSO</div><div class="num">${pct}%</div><div class="minibar"><i style="width:${pct}%"></i></div></div></div>
       ${stat('var(--green)','APROVADOS',appr)}${stat('var(--red)','REPROVADOS',rej)}${stat('var(--amber-dot)','PENDENTES',total-done)}</div>
@@ -1340,6 +1349,50 @@ function clearAllResponses(pid){
       }
       toast('Respostas limpas'); drawTracking(pid);
     },true);
+}
+
+/* ====================================================================
+   FINALIZAR TAREFA · apaga as mídias do Storage p/ liberar espaço
+   (mantém texto/histórico; só remove o ARQUIVO de imagem/vídeo)
+   ==================================================================== */
+function storagePathFromUrl(url){
+  if(!url) return null;
+  const marker='/object/public/'+CFG.bucket+'/';
+  const i=url.indexOf(marker);
+  if(i===-1) return null;
+  try{ return decodeURIComponent(url.slice(i+marker.length).split('?')[0]); }catch(e){ return url.slice(i+marker.length).split('?')[0]; }
+}
+function finalizeAndClean(pid){
+  const p=S.projects.find(x=>x.id===pid); if(!p) return;
+  if(p.media_cleared_at){
+    return confirmDialog('Verificar mídias novas?',
+      `As mídias desta tarefa já foram apagadas em <b>${esc(new Date(p.media_cleared_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</b>. Rodar de novo só remove arquivos de itens que tenham recebido um anexo novo desde então. Continuar?`,
+      ()=>runFinalizeAndClean(pid));
+  }
+  confirmDialog('Finalizar e apagar mídias do Storage?',
+    `Isso apaga do <b>Supabase Storage</b> as imagens/vídeos de todos os itens desta tarefa (aprovados e reprovados) para liberar espaço. Textos, comentários e o histórico de aprovação continuam salvos — só o arquivo de mídia é removido, e não pode ser recuperado depois.<br><br>⚠️ Confirme antes que a equipe já <b>baixou ou publicou</b> os criativos aprovados.`,
+    ()=>runFinalizeAndClean(pid), true);
+}
+async function runFinalizeAndClean(pid){
+  const { data:its, error:e0 } = await sb.from('items').select('id,creative_url').eq('project_id',pid);
+  if(e0){ console.error(e0); return toast('Erro ao buscar itens'); }
+  const list=(its||[]).filter(i=>i.creative_url);
+  const paths=list.map(i=>storagePathFromUrl(i.creative_url)).filter(Boolean);
+  if(paths.length){
+    const { error }=await sb.storage.from(CFG.bucket).remove(paths);
+    if(error){ console.error(error); return toast('Erro ao apagar arquivos: '+error.message); }
+  }
+  for(const it of list){
+    const { error }=await sb.from('items').update({creative_url:null,creative_type:null,media_cleared:true}).eq('id',it.id);
+    if(error && !((error.message||'').includes('media_cleared')||error.code==='PGRST204')){ console.error(error); }
+  }
+  const { error:e1 }=await sb.from('projects').update({media_cleared_at:new Date().toISOString()}).eq('id',pid);
+  if(e1 && ((e1.message||'').includes('media_cleared_at')||e1.code==='PGRST204')){
+    toast('Arquivos apagados, mas falta criar as colunas media_cleared/media_cleared_at no banco (veja instruções).');
+  } else {
+    toast(paths.length?`${paths.length} arquivo(s) apagado(s) do Storage`:'Nenhuma mídia para apagar');
+  }
+  drawTracking(pid);
 }
 
 /* ====================================================================
@@ -1761,7 +1814,7 @@ function clientCardHTML(it,i,dm,c){
   const accent=c.color; const blocks=[];
   if(it.has_creative){ const src=it.creative_url||'';
     blocks.push(`<div class="blk"><div class="blk-label"><span class="chip chip-ink">🎨 Criativo</span></div>
-    <div class="creative-prev">${src?creativeMediaHTML(it):'<div class="none">Criativo em produção. Será incluído quando finalizado.</div>'}</div>
+    <div class="creative-prev">${src?creativeMediaHTML(it):creativeEmptyHTML(it,'Criativo em produção. Será incluído quando finalizado.')}</div>
     ${approveBoxHTML(it.id,'creative','Aprovação do Criativo',dm)}</div>`); }
   if(it.has_copy){ blocks.push(`<div class="blk"><div class="blk-label"><span class="chip chip-accent">✍️ Copy</span></div>
     <div class="copy-block" style="border-left-color:${accent}"><p>${esc(it.copy||'(sem texto)')}</p>${it.hashtags?`<p class="tags" style="color:${shade(accent)}">${esc(it.hashtags)}</p>`:''}</div>
