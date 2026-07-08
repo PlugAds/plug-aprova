@@ -1068,7 +1068,7 @@ function itemEditorHTML(it,i){
           ${PLATFORMS.map(pl=>`<button class="chip ${(it.platforms||[]).includes(pl)?'chip-accent':'chip-ink'}" style="cursor:pointer;border:none" onclick="togglePlat('${it.id}','${pl}')">${pl}</button>`).join('')}
         </div></div>
         <div class="field"><label>Formato</label><input value="${esc(it.format||'')}" onchange="upd('${it.id}','format',this.value)" placeholder="Ex.: Carrossel 4 cards"></div></div>
-      <div class="field"><label>Ângulo / objetivo (opcional)</label><input value="${esc(it.angle||'')}" onchange="upd('${it.id}','angle',this.value)" placeholder="Ex.: Autoridade e tradição"></div>
+      <div class="field"><label>Data de publicação</label><button type="button" class="datebtn ${it.post_date?'':'empty'}" id="dbtn-${it.id}" onclick="openCal(event,'${it.id}')">📅 ${it.post_date?esc(fmtDate(it.post_date)):'Escolher data'}</button></div>
       <div class="toggle-row">
         <label class="tg"><input type="checkbox" ${it.has_copy?'checked':''} onchange="upd('${it.id}','has_copy',this.checked)">Aprovar copy</label>
         <label class="tg"><input type="checkbox" ${it.has_creative?'checked':''} onchange="upd('${it.id}','has_creative',this.checked)">Aprovar criativo</label></div>
@@ -1296,7 +1296,7 @@ async function drawTracking(projectId){
       const st=!d?'<span class="sb pending">○ Pendente</span>':d.status==='approved'?'<span class="sb approved">✓ Aprovado</span>':'<span class="sb rejected">✕ Reprovado</span>';
       return `<div class="track-line"><b style="color:var(--ink);min-width:58px">${lbl}:</b> ${st} ${d&&d.updated_at?`<span style="color:var(--ink-faint)">· ${esc(new Date(d.updated_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</span>`:''}</div>
         ${d&&d.status==='rejected'&&d.notes?`<div class="track-note">↳ "${esc(d.notes)}"</div>`:''}`; };
-    return `<div class="track-row"><div class="track-num">${i+1}</div><div class="track-info"><div class="tt">${esc(it.title||'(sem título)')}</div>${blk('copy','Copy')}${blk('creative','Criativo')}</div></div>`;
+    return `<div class="track-row"><div class="track-num">${i+1}</div><div class="track-info"><div class="tt">${esc(it.title||'(sem título)')}${it.post_date?' <span style="color:var(--ink-faint);font-weight:500">· 📅 '+esc(fmtDate(it.post_date))+'</span>':''}</div>${blk('copy','Copy')}${blk('creative','Criativo')}</div></div>`;
   }).join('');
   const stat=(col,lbl,n)=>`<div class="stat"><div class="bar" style="background:${col}"></div><div class="in"><div class="lbl">${lbl}</div><div class="num" style="color:${col}">${n}</div></div></div>`;
   const body=`
@@ -1820,7 +1820,7 @@ function clientCardHTML(it,i,dm,c){
     <div class="copy-block" style="border-left-color:${accent}"><p>${esc(it.copy||'(sem texto)')}</p>${it.hashtags?`<p class="tags" style="color:${shade(accent)}">${esc(it.hashtags)}</p>`:''}</div>
     ${approveBoxHTML(it.id,'copy','Aprovação da Copy',dm)}</div>`); }
   return `<div class="post-card"><div class="post-head"><span class="pnum" style="background:${accent}">${i+1}</span>
-    <div class="pinfo"><h3>${esc(it.title||'Item '+(i+1))}</h3><p>${(it.platforms||[]).join(' · ')||''}${it.format?' · '+esc(it.format):''}${it.angle?' · '+esc(it.angle):''}</p></div></div>${blocks.join('')}</div>`;
+    <div class="pinfo"><h3>${esc(it.title||'Item '+(i+1))}</h3><p>${(it.platforms||[]).join(' · ')||''}${it.format?' · '+esc(it.format):''}${it.post_date?' · 📅 '+esc(fmtDate(it.post_date)):''}</p></div></div>${blocks.join('')}</div>`;
 }
 function approveBoxHTML(itemId,type,title,dm){
   const key=itemId+'-'+type; const d=dm[key];
