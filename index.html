@@ -1226,8 +1226,8 @@ function creativeMediaHTML(it){
     : `<img src="${esc(m.url)}">`;
   if(list.length===1) return one(list[0]);
   return `<div style="display:flex;gap:8px;overflow-x:auto;padding:12px;background:#16161a">${list.map(m=>m.type==='video'
-    ? `<video src="${esc(m.url)}" controls playsinline style="height:220px;border-radius:8px;flex-shrink:0;background:#000"></video>`
-    : `<img src="${esc(m.url)}" style="height:220px;border-radius:8px;flex-shrink:0;object-fit:cover">`).join('')}</div>
+    ? `<video src="${esc(m.url)}" controls playsinline style="height:320px;max-width:85%;border-radius:8px;flex-shrink:0;object-fit:contain;background:#000"></video>`
+    : `<img src="${esc(m.url)}" style="height:320px;max-width:85%;border-radius:8px;flex-shrink:0;object-fit:contain;background:#000">`).join('')}</div>
     <div style="text-align:center;font-size:11.5px;color:rgba(255,255,255,.55);padding:4px 0 8px;background:#16161a">🖼️ Carrossel · ${list.length} mídias — arraste para o lado</div>`;
 }
 function creativeEmptyHTML(it,fallback){
