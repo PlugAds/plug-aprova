@@ -750,12 +750,14 @@ async function renderClientPage(clientId){
     const isM=p.mode==='mensal';
     let label,pct;
     if(isM){
-      const cnt=S.projects.length; // placeholder
       const { count } = await sb.from('items').select('id',{count:'exact',head:true}).eq('project_id',p.id);
-      label = p.month_status==='approved'?'<span class="sb approved">✓ Aprovado</span>'
-            : p.month_status==='rejected'?'<span class="sb rejected">✕ Revisão</span>'
-            : '<span class="sb pending">○ Pendente</span>';
-      pct = p.month_status==='approved'?100:0;
+      const st=await projectStats(p.id);
+      pct = st.total?Math.round(st.done/st.total*100):0;
+      label = st.total===0?'<span class="sb pending">○ Sem posts</span>'
+            : st.done===0?'<span class="sb pending">○ Pendente</span>'
+            : st.done<st.total?'<span class="sb pending">◑ Em avaliação</span>'
+            : st.rej>0?'<span class="sb rejected">✕ Com ajustes</span>'
+            : '<span class="sb approved">✓ Aprovado</span>';
       cards+=`<div class="ccard" onclick="renderProject('${p.id}')">
         <div class="swatch" style="background:${c.color}"></div>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
@@ -1942,7 +1944,13 @@ function buildClientText(){
   const c=S.cClient,p=S.cProjects.find(x=>x.id===S.cActiveProj);
   if(p.mode==='mensal'){
     const name=((($('cSenderM')&&$('cSenderM').value)||S._mSender||p.month_sender||'').trim())||'—';
-    const stt=p.month_status==='approved'?'✅ MÊS APROVADO':p.month_status==='rejected'?'❌ REVISÃO SOLICITADA':'⏳ AINDA NÃO AVALIADO';
+    const mPosts=S.cItems.filter(i=>i.row_type!=='week');
+    const mAppr=mPosts.filter(i=>i.post_status==='approved').length;
+    const mRej=mPosts.filter(i=>i.post_status==='rejected').length;
+    const stt = mPosts.length===0?'⏳ AINDA NÃO AVALIADO'
+              : (mAppr+mRej)<mPosts.length?'⏳ EM AVALIAÇÃO'
+              : mRej>0?'❌ COM AJUSTES SOLICITADOS'
+              : '✅ MÊS APROVADO';
     let t=`🗓️ *APROVAÇÃO DO MÊS — ${c.name}*\n${p.title}${p.period?' ('+p.period+')':''}\nResponsável: ${name}\nStatus: ${stt}\nData: ${nowStr()}\n`;
     S.cItems.forEach((it)=>{
       if(it.row_type==='week'){ t+=`\n${'─'.repeat(34)}\n🗂️ *${it.title||it.week||'Semana'}*\n`; }
