@@ -644,9 +644,9 @@ async function renderClients(){
   let cards='';
   for(const c of S.clients){
     const projs=S.projects.filter(p=>p.client_id===c.id);
-    let total=0,done=0;
-    for(const p of projs){ const st=await projectStats(p.id); total+=st.total; done+=st.done; }
-    const pct=total?Math.round(done/total*100):0;
+    let total=0,appr=0;
+    for(const p of projs){ const st=await projectStats(p.id); total+=st.total; appr+=st.appr; }
+    const pct=total?Math.round(appr/total*100):0;
     cards+=`<div class="ccard" onclick="renderClientPage('${c.id}')">
       <div class="swatch" style="background:${c.color}"></div>
       ${clientAvatar(c,'cinit')}
@@ -768,7 +768,13 @@ async function renderClientPage(clientId){
         <div class="minibar"><i style="width:${pct}%;background:${c.color}"></i></div>
         <div class="foot">${label}</div></div>`;
     } else {
-      const st=await projectStats(p.id); pct=st.total?Math.round(st.done/st.total*100):0;
+      const st=await projectStats(p.id);
+      pct=st.total?Math.round(st.appr/st.total*100):0;
+      const wLabel = st.total===0?'<span class="chip chip-ink">Sem itens</span>'
+            : st.done===0?'<span class="sb pending">○ Pendente</span>'
+            : st.done<st.total?'<span class="sb pending">◑ Em avaliação</span>'
+            : st.rej>0?'<span class="sb rejected">✕ Com ajustes</span>'
+            : '<span class="sb approved">✓ Aprovado</span>';
       cards+=`<div class="ccard" onclick="renderProject('${p.id}')">
         <div class="swatch" style="background:${c.color}"></div>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
@@ -777,7 +783,7 @@ async function renderClientPage(clientId){
         <h3 style="margin-top:12px">${esc(p.title)}</h3>
         <div class="meta">${esc(p.period||'')} · ${st.total/2|0} posts</div>
         <div class="minibar"><i style="width:${pct}%;background:${c.color}"></i></div>
-        <div class="foot"><span class="chip chip-ink">${pct}% aprovado</span></div></div>`;
+        <div class="foot">${wLabel}</div></div>`;
     }
   }
   const body=`
