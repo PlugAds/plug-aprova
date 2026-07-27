@@ -845,7 +845,7 @@ function editProject(id,clientId){
           <button type="button" class="modepick" data-m="semanal" onclick="pickMode('semanal')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
             <div style="font-weight:700;font-size:14px">📸 Pauta semanal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Posts prontos com copy e criativo, aprovados um a um.</div></button>
           <button type="button" class="modepick" data-m="pauta_mensal" onclick="pickMode('pauta_mensal')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
-            <div style="font-weight:700;font-size:14px">🗞️ Pauta mensal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Igual à pauta semanal (copy + criativo, aprovado um a um), só que reunindo todos os posts do mês numa tarefa só.</div></button>
+            <div style="font-weight:700;font-size:14px">🗞️ Pauta mensal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Posts prontos com copy e criativo, aprovados um a um.</div></button>
           <button type="button" class="modepick" data-m="projeto" onclick="pickMode('projeto')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
             <div style="font-weight:700;font-size:14px">📦 Projeto</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Entrega ou tarefa avulsa: descrição + anexos para aprovar.</div></button>
         </div><input type="hidden" id="pMode" value="${mode}"></div>`}
@@ -915,6 +915,7 @@ async function renderProject(projectId){
 
   if(isMonthly){ return shell(head + monthlyEditorBody(p,items||[])); }
   if(isProject){ return shell(head + projectEditorBody(p,items||[])); }
+  if(p.mode==='pauta_mensal'){ return shell(head + monthlyPautaEditorBody(p,items||[])); }
 
   // ----- SEMANAL (posts com copy/criativo) -----
   const ids=(items||[]).map(i=>i.id);
@@ -1026,6 +1027,54 @@ function delWeek(weekId){
     for(const id of toDel){ await sb.from('items').delete().eq('id',id); }
     renderProject(S.projectId);
   },true);
+}
+
+/* ----- PAUTA MENSAL (semanas + posts completos: copy, criativo, aprovação um a um) ----- */
+function monthlyPautaEditorBody(p,items){
+  let html='', curWeek=null, weekPosts=[];
+  const flush=()=>{
+    if(!curWeek) return;
+    html+=pautaWeekBlockHTML(curWeek, weekPosts, p.id);
+    weekPosts=[];
+  };
+  items.forEach(it=>{
+    if(it.row_type==='week'){ flush(); curWeek=it; }
+    else { weekPosts.push(it); }
+  });
+  flush();
+  return `
+    <div class="secbar"><div class="ico">🗞️</div><h3>Posts do mês</h3><div class="spacer"></div>
+      <button class="btn btn-accent btn-sm" onclick="addWeek('${p.id}')">＋ Nova semana</button></div>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 16px">Crie as semanas e, dentro de cada uma, adicione os posts prontos (copy + criativo). O cliente aprova cada post individualmente, semana a semana.</p>
+    ${html||`<div class="empty"><div class="em">🗞️</div><h3>Sem semanas</h3><p>Comece criando a primeira semana do mês.</p><br><button class="btn btn-accent" onclick="addWeek('${p.id}')">＋ Nova semana</button></div>`}
+    ${items.length?`<div style="text-align:center;margin-top:18px"><button class="btn btn-ghost" onclick="addWeek('${p.id}')">＋ Nova semana</button></div>`:''}`;
+}
+function pautaWeekBlockHTML(week, posts, pid){
+  const postsHTML = posts.map((it,i)=>itemEditorHTML(it,i)).join('');
+  return `<div style="border:1px solid var(--line);border-radius:var(--r);background:var(--line-soft);padding:16px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:18px">🗂️</span>
+      <input value="${esc(week.title||week.week||'')}" onchange="upd('${week.id}','title',this.value)" placeholder="Semana 1" style="font-size:16px;font-weight:700;border:none;background:transparent;flex:1;min-width:0;padding:4px 0;border-bottom:2px solid transparent" onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='transparent'">
+      <span class="chip chip-ink">${posts.length} post${posts.length!==1?'s':''}</span>
+      <button class="icon-btn" title="Mover semana acima" onclick="moveItem('${week.id}',-1)">↑</button>
+      <button class="icon-btn" title="Mover semana abaixo" onclick="moveItem('${week.id}',1)">↓</button>
+      <button class="icon-btn" style="color:var(--red)" title="Excluir semana e seus posts" onclick="delWeek('${week.id}')">🗑</button>
+    </div>
+    ${postsHTML||'<p style="font-size:13px;color:var(--ink-faint);padding:4px 0 12px">Nenhum post nesta semana ainda.</p>'}
+    <button class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="addPautaPost('${pid}','${week.id}')">＋ Adicionar post nesta semana</button>
+  </div>`;
+}
+async function addPautaPost(pid, weekId){
+  const week=S._items.find(i=>i.id===weekId);
+  const sorted=S._items.slice().sort((a,b)=>(a.sort||0)-(b.sort||0));
+  const wIdx=sorted.findIndex(i=>i.id===weekId);
+  let insertSort=(week.sort||0)+1;
+  for(let k=wIdx+1;k<sorted.length;k++){ if(sorted[k].row_type==='week') break; insertSort=(sorted[k].sort||0)+1; }
+  for(const it of S._items){ if((it.sort||0)>=insertSort){ await sb.from('items').update({sort:(it.sort||0)+1}).eq('id',it.id); } }
+  const rec={ project_id:pid, row_type:'post', title:'', platforms:['Instagram Feed'], format:'', post_date:'', has_copy:true, has_creative:true, copy:'', hashtags:'', creative_url:null, sort:insertSort };
+  const { error }=await sb.from('items').insert(rec);
+  if(error){ console.error(error); return toast('Erro ao adicionar post'); }
+  renderProject(pid);
 }
 
 /* ----- EDITOR DO PROJETO (itens livres: título + descrição + anexo) ----- */
@@ -1352,13 +1401,33 @@ async function drawTracking(projectId){
   let total=0,done=0,appr=0,rej=0;
   (items||[]).forEach(it=>{ ['copy','creative'].forEach(t=>{ if(it['has_'+t]){ total++; const d=dm[it.id+'-'+t]; if(d){done++; if(d.status==='approved')appr++; else rej++;} } }); });
   const pct=total?Math.round(done/total*100):0;
-  const rows=(items||[]).map((it,i)=>{
-    const blk=(t,lbl)=>{ if(!it['has_'+t])return ''; const d=dm[it.id+'-'+t];
-      const st=!d?'<span class="sb pending">○ Pendente</span>':d.status==='approved'?'<span class="sb approved">✓ Aprovado</span>':'<span class="sb rejected">✕ Reprovado</span>';
-      return `<div class="track-line"><b style="color:var(--ink);min-width:58px">${lbl}:</b> ${st} ${d&&d.updated_at?`<span style="color:var(--ink-faint)">· ${esc(new Date(d.updated_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</span>`:''}</div>
-        ${d&&d.status==='rejected'&&d.notes?`<div class="track-note">↳ "${esc(d.notes)}"</div>`:''}`; };
-    return `<div class="track-row"><div class="track-num">${i+1}</div><div class="track-info"><div class="tt">${esc(it.title||'(sem título)')}${it.post_date?' <span style="color:var(--ink-faint);font-weight:500">· 📅 '+esc(fmtDate(it.post_date))+'</span>':''}</div>${blk('copy','Copy')}${blk('creative','Criativo')}</div></div>`;
-  }).join('');
+  const mkBlk=(it)=>(t,lbl)=>{ if(!it['has_'+t])return ''; const d=dm[it.id+'-'+t];
+    const st=!d?'<span class="sb pending">○ Pendente</span>':d.status==='approved'?'<span class="sb approved">✓ Aprovado</span>':'<span class="sb rejected">✕ Reprovado</span>';
+    return `<div class="track-line"><b style="color:var(--ink);min-width:58px">${lbl}:</b> ${st} ${d&&d.updated_at?`<span style="color:var(--ink-faint)">· ${esc(new Date(d.updated_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}</span>`:''}</div>
+      ${d&&d.status==='rejected'&&d.notes?`<div class="track-note">↳ "${esc(d.notes)}"</div>`:''}`; };
+  let rows;
+  if(p.mode==='pauta_mensal'){
+    rows=''; let cnt=0, openWeek=false;
+    (items||[]).forEach(it=>{
+      if(it.row_type==='week'){
+        if(openWeek) rows+='</div>';
+        rows+=`<div class="tk-week"><div class="tk-week-h"><span>🗂️</span><b>${esc(it.title||it.week||'Semana')}</b></div>`;
+        openWeek=true; cnt=0;
+      } else {
+        cnt++; const blk=mkBlk(it);
+        rows+=`<div class="tk-post"><div class="tk-post-h"><span class="tk-num">${cnt}</span>
+            <div class="tk-title">${esc(it.title||'(sem título)')}</div>
+            <div class="tk-meta">${it.format?esc(it.format):''}${it.post_date?' · 📅 '+esc(fmtDate(it.post_date)):''}</div></div>
+          ${blk('copy','Copy')}${blk('creative','Criativo')}</div>`;
+      }
+    });
+    if(openWeek) rows+='</div>';
+  } else {
+    rows=(items||[]).map((it,i)=>{
+      const blk=mkBlk(it);
+      return `<div class="track-row"><div class="track-num">${i+1}</div><div class="track-info"><div class="tt">${esc(it.title||'(sem título)')}${it.post_date?' <span style="color:var(--ink-faint);font-weight:500">· 📅 '+esc(fmtDate(it.post_date))+'</span>':''}</div>${blk('copy','Copy')}${blk('creative','Criativo')}</div></div>`;
+    }).join('');
+  }
   const stat=(col,lbl,n)=>`<div class="stat"><div class="bar" style="background:${col}"></div><div class="in"><div class="lbl">${lbl}</div><div class="num" style="color:${col}">${n}</div></div></div>`;
   const body=`
     <div class="page-head"><div>
@@ -1372,7 +1441,7 @@ async function drawTracking(projectId){
     <div class="stats">
       <div class="stat"><div class="bar" style="background:var(--accent)"></div><div class="in"><div class="lbl">PROGRESSO</div><div class="num">${pct}%</div><div class="minibar"><i style="width:${pct}%"></i></div></div></div>
       ${stat('var(--green)','APROVADOS',appr)}${stat('var(--red)','REPROVADOS',rej)}${stat('var(--amber-dot)','PENDENTES',total-done)}</div>
-    <div class="tcard" style="padding:6px 21px">${rows||'<div class="empty"><p>Sem itens.</p></div>'}</div>`;
+    <div class="tcard" style="padding:6px 21px">${p.mode==='pauta_mensal'?`<div class="tk-doc" style="padding:15px 0">${rows||'<div class="empty"><p>Sem itens.</p></div>'}</div>`:(rows||'<div class="empty"><p>Sem itens.</p></div>')}</div>`;
   shell(body);
 }
 
@@ -1664,6 +1733,8 @@ async function renderClientView(){
 
   if(p.mode==='mensal'){ return renderClientMonthly(c,p,items||[],picker); }
 
+  if(p.mode==='pauta_mensal'){ return renderClientPautaMensal(c,p,items||[],picker,dm,sender); }
+
   if(p.mode==='projeto'){
     const cards=(items||[]).map((it,i)=>clientProjectCardHTML(it,i,dm,c)).join('');
     document.querySelector('.c-wrap').innerHTML=`
@@ -1714,6 +1785,43 @@ async function finalizarEnvio(){
   toast('Aprovação enviada com sucesso!');
 }
 function switchProj(id){ S.cActiveProj=id; renderClientView(); }
+
+/* ---------- tela do cliente: PAUTA MENSAL (semanas + copy/criativo aprovados um a um) ---------- */
+function renderClientPautaMensal(c,p,items,picker,dm,sender){
+  const accent=c.color;
+  let groupsHTML='', curWeek=null, wPosts=[], totalPosts=0;
+  const flushG=()=>{
+    if(!curWeek) return;
+    const cardsHTML=wPosts.map((it,i)=>clientCardHTML(it,i,dm,c)).join('');
+    groupsHTML+=`<div style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div class="ico" style="width:32px;height:32px;border-radius:9px;background:${accent};color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px">🗂️</div>
+        <h3 style="font-size:17px;font-weight:700">${esc(curWeek.title||curWeek.week||'Semana')}</h3>
+        <span class="chip chip-ink">${wPosts.length} post${wPosts.length!==1?'s':''}</span></div>
+      ${cardsHTML||'<p style="font-size:13px;color:var(--ink-faint);margin-bottom:14px">Sem posts nesta semana.</p>'}</div>`;
+    wPosts=[];
+  };
+  items.forEach(it=>{ if(it.row_type==='week'){ flushG(); curWeek=it; } else { wPosts.push(it); totalPosts++; } });
+  flushG();
+
+  document.querySelector('.c-wrap').innerHTML=`
+    ${picker}
+    <div class="secbar"><div class="ico" style="background:${accent}">🗞️</div><h3>Posts do mês</h3></div>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Veja os posts do mês, semana a semana. Aprove a copy e o criativo de cada um, ou marque <b>reprovar</b> e descreva o ajuste.</p>
+    ${groupsHTML||'<div class="empty"><p>Planejamento ainda em montagem.</p></div>'}
+    <p style="font-size:12.5px;color:var(--ink-faint);text-align:right;margin:4px 0 20px">Total: <b>${totalPosts} posts</b> no mês</p>
+
+    <div class="send-block"><div class="send-inner"><div class="si">📤</div><h2>Finalizar aprovação</h2>
+      <p>Suas respostas são salvas automaticamente. Confirme seu nome e clique em enviar para concluir.</p>
+      <div class="namewrap"><label>Seu nome</label><input id="cSender" placeholder="Quem está aprovando?" value="${esc(sender||'')}" onchange="saveSender(this.value)"></div>
+      <div class="send-alert" id="cAlert"></div>
+      <div class="send-btns">
+        <button class="btn btn-accent" style="padding:13px 36px;font-size:15px" onclick="finalizarEnvio()">✓ Enviar para a agência</button>
+        <button class="btn btn-wa" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button></div>
+      </div></div>
+    <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
+  updateClientProgress();
+}
 
 /* ---------- tela do cliente: MENSAL (planejamento) ---------- */
 function renderClientMonthly(c,p,items,picker){
