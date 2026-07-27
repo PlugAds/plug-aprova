@@ -778,7 +778,7 @@ async function renderClientPage(clientId){
       cards+=`<div class="ccard" onclick="renderProject('${p.id}')">
         <div class="swatch" style="background:${c.color}"></div>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-          <span class="chip chip-ink">📸 Semanal</span>
+          <span class="chip chip-ink">${p.mode==='pauta_mensal'?'🗞️ Pauta mensal':'📸 Semanal'}</span>
           ${p.published?'<span class="sb approved">● Publicado</span>':'<span class="sb pending">○ Rascunho</span>'}</div>
         <h3 style="margin-top:12px">${esc(p.title)}</h3>
         <div class="meta">${esc(p.period||'')} · ${st.total/2|0} posts</div>
@@ -834,7 +834,7 @@ function editProject(id,clientId){
   const p=id?S.projects.find(x=>x.id===id):null;
   const mode=p?(p.mode||'semanal'):'semanal';
   const lockMode = !!id; // não troca o modo de uma tarefa já criado (evita misturar itens)
-  const modeLabel = m => m==='mensal'?'🗓️ Cronograma mensal':m==='projeto'?'📦 Projeto':'📸 Pauta semanal';
+  const modeLabel = m => m==='mensal'?'🗓️ Cronograma mensal':m==='projeto'?'📦 Projeto':m==='pauta_mensal'?'🗞️ Pauta mensal':'📸 Pauta semanal';
   openModal(`
     <div class="modal-head"><h3>${p?'Editar':'Nova'} tarefa</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
@@ -844,6 +844,8 @@ function editProject(id,clientId){
             <div style="font-weight:700;font-size:14px">🗓️ Cronograma mensal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Planejamento do mês: semanas e posts (formato, tema, data).</div></button>
           <button type="button" class="modepick" data-m="semanal" onclick="pickMode('semanal')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
             <div style="font-weight:700;font-size:14px">📸 Pauta semanal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Posts prontos com copy e criativo, aprovados um a um.</div></button>
+          <button type="button" class="modepick" data-m="pauta_mensal" onclick="pickMode('pauta_mensal')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
+            <div style="font-weight:700;font-size:14px">🗞️ Pauta mensal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Igual à pauta semanal (copy + criativo, aprovado um a um), só que reunindo todos os posts do mês numa tarefa só.</div></button>
           <button type="button" class="modepick" data-m="projeto" onclick="pickMode('projeto')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
             <div style="font-weight:700;font-size:14px">📦 Projeto</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Entrega ou tarefa avulsa: descrição + anexos para aprovar.</div></button>
         </div><input type="hidden" id="pMode" value="${mode}"></div>`}
@@ -858,12 +860,12 @@ function editProject(id,clientId){
 function pickMode(m){
   const inp=$('pMode'); if(inp) inp.value=m;
   document.querySelectorAll('.modepick').forEach(b=>{ const on=b.dataset.m===m; b.style.borderColor=on?'var(--accent)':'var(--line)'; b.style.background=on?'var(--accent-tint)':'#fff'; });
-  const t=$('pTitle'); if(t&&!t.value){ t.placeholder = m==='mensal'?'Ex.: Planejamento de Junho':m==='projeto'?'Ex.: Identidade visual, Campanha de aniversário…':'Ex.: Pauta Semana 1'; }
+  const t=$('pTitle'); if(t&&!t.value){ t.placeholder = m==='mensal'?'Ex.: Planejamento de Junho':m==='projeto'?'Ex.: Identidade visual, Campanha de aniversário…':m==='pauta_mensal'?'Ex.: Pauta de Junho':'Ex.: Pauta Semana 1'; }
 }
 async function saveProject(id,clientId){
   const title=$('pTitle').value.trim(); if(!title) return toast('Informe o título');
   const mode=$('pMode')?$('pMode').value:'semanal';
-  const kind = mode==='mensal'?'Mensal':mode==='projeto'?'Projeto':'Semanal';
+  const kind = mode==='mensal'?'Mensal':mode==='projeto'?'Projeto':mode==='pauta_mensal'?'Pauta mensal':'Semanal';
   const rec={ title, kind, period:$('pPeriod').value.trim(), mode };
   if(id){ const {error}=await sb.from('projects').update(rec).eq('id',id); if(error)return toast('Erro ao salvar'); closeModal(); renderProject(id); }
   else{ rec.client_id=clientId; rec.published=false;
@@ -891,7 +893,7 @@ async function renderProject(projectId){
   const { data:items } = await sb.from('items').select('*').eq('project_id',projectId).order('sort');
   S._items=items||[];
   const link=projectLinkFor(c,p);
-  const modeChip = isMonthly?'<span class="chip chip-accent">🗓️ Mensal</span>':isProject?'<span class="chip chip-accent">📦 Projeto</span>':'<span class="chip chip-ink">📸 Semanal</span>';
+  const modeChip = isMonthly?'<span class="chip chip-accent">🗓️ Mensal</span>':isProject?'<span class="chip chip-accent">📦 Projeto</span>':p.mode==='pauta_mensal'?'<span class="chip chip-ink">🗞️ Pauta mensal</span>':'<span class="chip chip-ink">📸 Semanal</span>';
 
   const head=`
     <div class="page-head"><div>
@@ -1653,7 +1655,7 @@ async function renderClientView(){
   const dm={}; let sender=''; decs.forEach(d=>{ dm[d.item_id+'-'+d.kind]=d; if(d.sender)sender=d.sender; });
   S.cItems=items||[]; S.cDecisions=dm; S.cSender=sender;
 
-  const picker=(!S.cFocusProject && S.cProjects.length>1)?`<div class="proj-pick">${S.cProjects.filter(pr=>pr.published).map(pr=>`<button class="proj-tab ${pr.id===S.cActiveProj?'active':''}" style="${pr.id===S.cActiveProj?`background:${c.color}`:''}" onclick="switchProj('${pr.id}')">${pr.mode==='mensal'?'🗓️ ':'📸 '}${esc(pr.title)}</button>`).join('')}</div>`:'';
+  const picker=(!S.cFocusProject && S.cProjects.length>1)?`<div class="proj-pick">${S.cProjects.filter(pr=>pr.published).map(pr=>`<button class="proj-tab ${pr.id===S.cActiveProj?'active':''}" style="${pr.id===S.cActiveProj?`background:${c.color}`:''}" onclick="switchProj('${pr.id}')">${pr.mode==='mensal'?'🗓️ ':pr.mode==='pauta_mensal'?'🗞️ ':'📸 '}${esc(pr.title)}</button>`).join('')}</div>`:'';
 
   if(!p.published){
     document.querySelector('.c-wrap').innerHTML=picker+`<div class="empty"><div class="em">⏳</div><h3>Em preparação</h3><p>Esta tarefa ainda está sendo finalizada pela agência.</p></div>`;
