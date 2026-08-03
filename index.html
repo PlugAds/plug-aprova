@@ -1026,6 +1026,9 @@ function delWeek(weekId){
   const toDel=[weekId];
   for(let k=wIdx+1;k<sorted.length;k++){ if(sorted[k].row_type==='week') break; toDel.push(sorted[k].id); }
   confirmDialog('Excluir semana?',`Remove esta semana e <b>${toDel.length-1} post(s)</b> dentro dela.`,async()=>{
+    const paths=[]; const seen=new Set();
+    for(const id of toDel){ const it=S._items.find(x=>x.id===id); if(it){ for(const m of creativeList(it)){ const pth=storagePathFromUrl(m.url); if(pth&&!seen.has(pth)){ seen.add(pth); paths.push(pth); } } } }
+    if(paths.length){ try{ await sb.storage.from(CFG.bucket).remove(paths); }catch(e){ console.error(e); } }
     for(const id of toDel){ await sb.from('items').delete().eq('id',id); }
     renderProject(S.projectId);
   },true);
@@ -1175,12 +1178,18 @@ async function addItem(pid){
 }
 function delItem(id){
   confirmDialog('Excluir item?','O item e suas respostas serão removidos.',async()=>{
+    const it=S._items.find(x=>x.id===id);
+    if(it){ const paths=creativeList(it).map(m=>storagePathFromUrl(m.url)).filter(Boolean); if(paths.length){ try{ await sb.storage.from(CFG.bucket).remove(paths); }catch(e){ console.error(e); } } }
     await sb.from('items').delete().eq('id',id); renderProject(S.projectId);
   },true);
 }
 function delProject(id,clientId){
   const p=S.projects.find(x=>x.id===id);
   confirmDialog('Excluir tarefa?',`Remove <b>"${esc(p?p.title:'')}"</b> e todos os itens e respostas dele. Não pode ser desfeito.`,async()=>{
+    const { data:its }=await sb.from('items').select('creative_url,creative_urls').eq('project_id',id);
+    const paths=[]; const seen=new Set();
+    for(const it of (its||[])){ for(const m of creativeList(it)){ const pth=storagePathFromUrl(m.url); if(pth&&!seen.has(pth)){ seen.add(pth); paths.push(pth); } } }
+    if(paths.length){ try{ await sb.storage.from(CFG.bucket).remove(paths); }catch(e){ console.error(e); } }
     const { error }=await sb.from('projects').delete().eq('id',id);
     if(error){ console.error(error); return toast('Erro ao excluir'); }
     toast('Tarefa excluída'); renderClientPage(clientId);
@@ -1205,6 +1214,8 @@ function refreshPrev(id,url){ const el=$('prev-'+id); if(!el)return;
   el.innerHTML=isVid?`<video src="${esc(url)}" controls playsinline style="width:100%;max-height:360px;background:#000"></video>`:`<img src="${esc(url)}">`;
 }
 async function clearImg(id){
+  const it=S._items.find(x=>x.id===id);
+  if(it){ const paths=creativeList(it).map(m=>storagePathFromUrl(m.url)).filter(Boolean); if(paths.length){ try{ await sb.storage.from(CFG.bucket).remove(paths); }catch(e){ console.error(e); } } }
   const { error }=await sb.from('items').update({creative_url:null,creative_type:null,creative_urls:[]}).eq('id',id);
   if(error && ((error.message||'').includes('creative_urls')||error.code==='PGRST204')){
     await sb.from('items').update({creative_url:null,creative_type:null}).eq('id',id);
@@ -1564,8 +1575,15 @@ async function renderStorage(){
 
   // contagens gerais
   const nClients=S.clients.length, nProj=S.projects.length;
-  const { data:allItems } = await sb.from('items').select('id,row_type');
+  const { data:allItems } = await sb.from('items').select('id,row_type,creative_url,creative_urls');
   const nPosts=(allItems||[]).filter(i=>i.row_type!=='week').length;
+
+  // detecta arquivos órfãos: existem no bucket mas não estão mais referenciados por nenhum item
+  // (sobras de imagens/vídeos substituídos, itens excluídos ou tarefas excluídas)
+  const referenced=new Set();
+  for(const it of (allItems||[])){ for(const m of creativeList(it)){ const pth=storagePathFromUrl(m.url); if(pth) referenced.add(pth); } }
+  const orphanFiles=files.filter(f=>!referenced.has(f.path));
+  const orphanBytes=orphanFiles.reduce((s,f)=>s+(f.size||0),0);
 
   const body=`
     <div class="page-head"><div><h2>Armazenamento</h2><p>Acompanhe o uso de arquivos (imagens e vídeos dos criativos).</p></div>
@@ -1583,6 +1601,9 @@ async function renderStorage(){
         <div><div style="font-size:24px;font-weight:800">${files.length}</div><div style="font-size:12px;color:var(--ink-faint)">arquivos</div></div>
       </div>
       ${pct>=90?`<div style="margin-top:16px;padding:12px 14px;background:var(--red-bg);border-radius:10px;font-size:13px;color:var(--red)">⚠️ Armazenamento quase cheio. Considere apagar criativos antigos já aprovados, ou usar links externos (Drive/YouTube) para vídeos novos.</div>`:pct>=70?`<div style="margin-top:16px;padding:12px 14px;background:var(--amber-bg,#FEF3C7);border-radius:10px;font-size:13px;color:#92660A">Atenção: você já usou mais de 70% do espaço. Vídeos são o que mais ocupam.</div>`:''}
+      ${orphanFiles.length?`<div style="margin-top:16px;padding:12px 14px;background:var(--accent-tint);border-radius:10px;font-size:13px;color:var(--accent-deep);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="flex:1">🧹 <b>${orphanFiles.length} arquivo(s) órfão(s)</b> (${fmtBytes(orphanBytes)}) — sobras de imagens/vídeos substituídos ou itens/tarefas excluídos antes desta correção, sem uso em nenhum criativo atual.</span>
+        <button class="btn btn-accent btn-sm" onclick="cleanOrphanFiles()">Limpar agora</button></div>`:''}
     </div>
 
     <div class="tcard" style="padding:20px 24px;max-width:620px;margin-bottom:16px">
@@ -1595,6 +1616,31 @@ async function renderStorage(){
       <p class="hint" style="margin-top:14px">Os textos (tarefas, temas, descrições, comentários) praticamente não ocupam espaço — o limite que importa é o de arquivos acima.</p>
     </div>`;
   shell(body);
+}
+
+async function cleanOrphanFiles(){
+  toast('Procurando arquivos órfãos…');
+  let files=[]; try{ files=await listBucketFiles(''); }catch(e){ console.error(e); return toast('Erro ao listar arquivos'); }
+  const { data:allItems } = await sb.from('items').select('creative_url,creative_urls');
+  const referenced=new Set();
+  for(const it of (allItems||[])){ for(const m of creativeList(it)){ const pth=storagePathFromUrl(m.url); if(pth) referenced.add(pth); } }
+  const orphans=files.filter(f=>!referenced.has(f.path));
+  if(!orphans.length) return toast('Nenhum arquivo órfão encontrado.');
+  const totalSize=orphans.reduce((s,f)=>s+(f.size||0),0);
+  confirmDialog('Limpar arquivos órfãos?',
+    `Encontrei <b>${orphans.length} arquivo(s)</b> (${fmtBytes(totalSize)}) no Storage que não estão mais vinculados a nenhum item — sobraram de imagens/vídeos substituídos ou de itens/tarefas excluídos antes desta correção.<br><br>Apagar libera esse espaço e <b>não afeta</b> nenhum criativo em uso hoje. Não pode ser desfeito.`,
+    async()=>{
+      const paths=orphans.map(f=>f.path);
+      let okCount=0;
+      for(let i=0;i<paths.length;i+=100){
+        const chunk=paths.slice(i,i+100);
+        const { error }=await sb.storage.from(CFG.bucket).remove(chunk);
+        if(error){ console.error(error); toast('Erro ao apagar alguns arquivos: '+error.message); }
+        else okCount+=chunk.length;
+      }
+      toast(`${okCount} arquivo(s) órfão(s) apagado(s)`);
+      renderStorage();
+    },true);
 }
 
 /* ====================================================================
