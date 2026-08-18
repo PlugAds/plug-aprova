@@ -50,6 +50,7 @@
   .btn-sm{padding:7px 12px;font-size:12.5px;border-radius:7px}
   .btn[disabled]{opacity:.45;cursor:not-allowed}
   .btn-wa{background:#25D366;color:#fff} .btn-wa:hover{background:#1eae54}
+  .btn-wa-outline{background:#fff;color:var(--plug-blue);border:1.5px solid var(--plug-blue)} .btn-wa-outline:hover{background:var(--plug-blue-tint)}
   .icon-btn{width:33px;height:33px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
     display:inline-flex;align-items:center;justify-content:center;font-size:15px;transition:.15s}
   .icon-btn:hover{background:var(--line-soft);color:var(--ink)}
@@ -1797,7 +1798,7 @@ async function renderClientView(){
         <div class="namewrap"><label>Seu nome</label><input id="cSender" placeholder="Quem está aprovando?" value="${esc(sender||'')}" onchange="saveSender(this.value)"></div>
         <div class="send-btns">
           <button class="btn btn-plugblue" style="padding:13px 36px;font-size:15px" onclick="finalizarEnvio()">✓ Enviar para a agência</button>
-          <button class="btn btn-wa" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button></div>
+          <button class="btn btn-wa-outline" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button></div>
         </div></div>
       <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
     updateClientProgress();
@@ -1818,7 +1819,7 @@ async function renderClientView(){
       <div class="send-alert" id="cAlert"></div>
       <div class="send-btns">
         <button class="btn btn-plugblue" style="padding:13px 36px;font-size:15px" onclick="finalizarEnvio()">✓ Enviar para a agência</button>
-        <button class="btn btn-wa" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button></div>
+        <button class="btn btn-wa-outline" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button></div>
       </div></div>
     <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
   drawClientSchedule(); updateClientProgress();
@@ -1867,7 +1868,7 @@ function renderClientPautaMensal(c,p,items,picker,dm,sender){
       <div class="send-alert" id="cAlert"></div>
       <div class="send-btns">
         <button class="btn btn-plugblue" style="padding:13px 36px;font-size:15px" onclick="finalizarEnvio()">✓ Enviar para a agência</button>
-        <button class="btn btn-wa" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button></div>
+        <button class="btn btn-wa-outline" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button></div>
       </div></div>
     <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
   updateClientProgress();
@@ -1921,7 +1922,7 @@ function renderClientMonthly(c,p,items,picker){
       <div class="namewrap"><label>Seu nome</label><input id="cSenderM" placeholder="Quem está avaliando?" value="${esc(p.month_sender||'')}" onchange="S._mSender=this.value"></div>
       <div class="send-btns" style="margin-top:18px">
         <button class="btn btn-plugblue" style="padding:13px 36px;font-size:15px" onclick="finalizarEnvioMes('${p.id}')">✓ Enviar respostas</button>
-        <button class="btn btn-wa" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button>
+        <button class="btn btn-wa-outline" style="padding:13px 24px;font-size:14px" onclick="cliWhatsapp()">📲 Resumo no WhatsApp</button>
       </div>
       </div></div>
     <p style="text-align:center;font-size:12px;color:var(--ink-faint);margin-top:22px">plug.aprova · ${esc(CFG.agencyName)}</p>`;
