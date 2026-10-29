@@ -305,6 +305,46 @@
   @keyframes sp{to{transform:rotate(360deg)}}
   .banner{padding:10px 16px;font-size:12.5px;text-align:center;background:var(--amber-bg);color:var(--amber);border-bottom:1px solid var(--amber-line)}
 
+  /* ---------- tela do cliente no celular: botões grandes, progresso sempre visível ---------- */
+  .inst-banner{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:300;background:var(--plug-blue-deep);color:#fff;border-radius:14px;box-shadow:var(--shadow-lg);padding:13px 14px;display:flex;align-items:center;gap:12px;max-width:520px;margin:0 auto}
+  .inst-banner .ib-txt{flex:1;font-size:13px;line-height:1.4}
+  .inst-banner .ib-txt b{display:block;font-size:14px}
+  .inst-banner .ib-sim{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 14px;font-weight:700;font-size:13px;white-space:nowrap}
+  .inst-banner .ib-nao{background:none;border:none;color:rgba(255,255,255,.6);font-size:20px;padding:4px 6px;line-height:1}
+  .inst-passos{text-align:left;font-size:14px;line-height:1.7;padding-left:20px}
+  .inst-passos li{margin-bottom:8px}
+  @media (max-width:640px){
+    input,textarea,select{font-size:16px !important}   /* evita o zoom automático do iPhone ao tocar no campo */
+    .c-header{padding:16px 16px 14px}
+    .c-header .inner{gap:10px}
+    .c-logo{width:42px;height:42px;font-size:17px;border-radius:11px}
+    .c-brand h1{font-size:18px}
+    .c-meta{text-align:left;font-size:12px;line-height:1.5}
+    .c-sub{position:sticky;top:0;z-index:50;padding:10px 16px}
+    .c-wrap{padding:16px 12px 110px}
+    .secbar{margin:22px 0 12px}
+    .secbar h3{font-size:16px}
+    .tcard{overflow-x:auto}
+    .tcard table{min-width:520px}
+    .post-card{margin-bottom:16px;border-radius:12px}
+    .post-head{padding:12px 14px}
+    .post-head .pinfo{min-width:0}
+    .blk{padding:14px}
+    .creative-prev{margin-left:-14px;margin-right:-14px;border-radius:0;border-left:none;border-right:none}
+    .creative-prev img{max-height:75vh}
+    .creative-prev video{max-height:75vh}
+    .copy-block{padding:13px 14px}
+    .copy-block p{font-size:15px}
+    .ap-top{gap:8px}
+    .ap-title{flex-basis:100%}
+    .b-ap,.b-rj{flex:1;justify-content:center;min-height:48px;font-size:15px !important;padding:10px 12px !important;border-radius:11px}
+    .post-card .blk > div[style*="display:flex;gap:10px"]{gap:8px !important}
+    .send-inner{padding:22px 16px}
+    .namewrap{flex-direction:column;align-items:stretch;gap:4px;max-width:none}
+    .send-btns .btn{width:100%;padding:14px !important}
+    .proj-pick{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+    .proj-tab{white-space:nowrap}
+  }
   @media (max-width:860px){
     .side{position:fixed;left:-260px;z-index:200;transition:.25s;box-shadow:var(--shadow-lg)}
     .side.open{left:0}
@@ -482,6 +522,12 @@ async function boot(){
   if(p.c){ return enterClient(p.c,p.p); }       // link do cliente (p.p = tarefa específica, se houver)
   const { data:{ session } } = await clienteEquipe().auth.getSession();
   if(session){ connectAgency(); return renderDashboard(); }
+  const linkSalvo=lerLocal('aprova_link_cliente');
+  if(emApp() && linkSalvo && linkSalvo!==location.href){
+    const destino=new URL(linkSalvo);
+    if(destino.pathname+destino.search===location.pathname+location.search){ history.replaceState(null,'',linkSalvo); return boot(); }
+    location.replace(linkSalvo); return;
+  }
   renderLanding();
 }
 
@@ -1759,8 +1805,55 @@ function checkClientPin(){
   else toast('PIN incorreto');
 }
 
+/* ---------- app do cliente: instalar na tela inicial (opcional) ---------- */
+// Cada cliente instala o próprio link: o app abre direto nas aprovações dele.
+let _instPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _instPrompt = e; });
+const emApp = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const ehIphone = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+function lerLocal(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function gravarLocal(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+
+function prepararAppCliente(c){
+  gravarLocal('aprova_link_cliente', location.href);
+  // manifesto com o nome do cliente e o link dele como página inicial do app
+  try{
+    const atual=document.querySelector('link[rel="manifest"]');
+    const base=JSON.parse(atob(atual.href.split(',')[1]));
+    const man={...base, name:`${c.name} · Aprovações`, short_name:'Aprovações', start_url:location.href, scope:location.origin+location.pathname};
+    atual.href=URL.createObjectURL(new Blob([JSON.stringify(man)],{type:'application/manifest+json'}));
+  }catch(e){ console.warn('manifesto do cliente:', e); }
+  // o aviso de instalar só aparece no celular/tablet
+  if(emApp() || lerLocal('aprova_inst_dispensado') || !matchMedia('(pointer:coarse)').matches) return;
+  setTimeout(()=>{
+    if($('instBanner')) return;
+    const b=document.createElement('div'); b.className='inst-banner'; b.id='instBanner';
+    b.innerHTML=`<div class="ib-txt"><b>📲 Aprove mais rápido</b>Adicione à tela inicial e abra suas aprovações com um toque.</div>
+      <button class="ib-sim" onclick="instalarAppCliente()">${_instPrompt?'Instalar':'Como fazer'}</button>
+      <button class="ib-nao" onclick="dispensarInstalacao()" aria-label="Agora não">✕</button>`;
+    document.body.appendChild(b);
+  }, 2500);
+}
+function dispensarInstalacao(){ gravarLocal('aprova_inst_dispensado','1'); const b=$('instBanner'); if(b) b.remove(); }
+async function instalarAppCliente(){
+  if(_instPrompt){
+    _instPrompt.prompt();
+    const { outcome } = await _instPrompt.userChoice; _instPrompt=null;
+    if(outcome==='accepted'){ dispensarInstalacao(); toast('Pronto! O app aparece na sua tela inicial.'); }
+    return;
+  }
+  const passos = ehIphone()
+    ? `<li>Abra este link no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (o quadrado com a seta ⬆️, na barra de baixo).</li><li>Role e toque em <b>Adicionar à Tela de Início</b>.</li><li>Toque em <b>Adicionar</b>.</li>`
+    : `<li>Toque nos <b>3 pontinhos ⋮</b> do navegador (no canto de cima).</li><li>Toque em <b>Adicionar à tela inicial</b> ou <b>Instalar app</b>.</li><li>Confirme em <b>Instalar</b>.</li><li>No navegador Samsung, use o menu <b>≡ → Adicionar página a → Tela inicial</b>.</li>`;
+  openModal(`<div class="modal-head"><h3>📲 Adicionar à tela inicial</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body"><ol class="inst-passos">${passos}</ol>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin-top:6px">O ícone abre direto nas suas aprovações. É opcional: o link continua funcionando normalmente.</p></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="dispensarInstalacao();closeModal()">Não mostrar mais</button><button class="btn btn-primary" onclick="closeModal()">Entendi</button></div>`);
+}
+
 async function loadClientView(){
   const c=S.cClient;
+  prepararAppCliente(c);
   const { data:projects } = await sb.from('projects').select('*').eq('client_id',c.id).order('created_at',{ascending:false});
   S.cProjects=projects||[];
   if(!S.cProjects.length){
