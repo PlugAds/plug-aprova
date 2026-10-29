@@ -122,6 +122,8 @@
   .side .nav-item{color:rgba(255,255,255,.78)}
   .side .nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
   .side .side-foot{border-top-color:rgba(255,255,255,.1)}
+  .side-sair{background:none;border:none;color:rgba(255,255,255,.6);font-size:12px;padding:8px;border-radius:8px;margin-top:4px}
+  .side-sair:hover{color:#fff;background:rgba(255,255,255,.08)}
   .side .side-foot .nm{color:#fff} .side .side-foot .rl{color:rgba(255,255,255,.6)}
 
   .main{flex:1;min-width:0;display:flex;flex-direction:column}
@@ -306,6 +308,7 @@
   @media (max-width:860px){
     .side{position:fixed;left:-260px;z-index:200;transition:.25s;box-shadow:var(--shadow-lg)}
     .side.open{left:0}
+    .side{height:100dvh}
     .topbar{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);background:#fff;position:sticky;top:0;z-index:60}
     .topbar .logo{font-size:18px}
     .content{padding:22px 16px 80px}
@@ -343,7 +346,6 @@
 const CFG = {
   url:      'https://gsioeuglijfmzbbgotum.supabase.co',
   anonKey:  'sb_publishable_rW8LOtnSgFiDr77wYG6vWw_Bw-RNivb',
-  agencyPass:'PluG@7354891032',          // segredo do painel (header x-agency-pass)
   bucket:   'criativos',
   agencyName:'Plug Comunicação'
 };
@@ -437,7 +439,12 @@ function makeClient(headers){
     global:{ headers }, auth:{ persistSession:false }
   });
 }
-function connectAgency(){ MODE='agency'; sb = makeClient({ 'x-agency-pass': CFG.agencyPass }); }
+// Equipe: login com e-mail e senha (Supabase Auth). A sessão fica salva no navegador.
+// O banco libera o painel para quem está logado (função is_agency); clientes entram só pelo link.
+let sbEquipe = null;
+function clienteEquipe(){ if(!sbEquipe) sbEquipe = window.supabase.createClient(CFG.url, CFG.anonKey); return sbEquipe; }
+function connectAgency(){ MODE='agency'; sb = clienteEquipe(); }
+async function doLogout(){ await clienteEquipe().auth.signOut(); sb=null; MODE=null; renderLanding(); }
 function connectClient(token){ MODE='client'; clientToken=token; sb = makeClient({ 'x-client-token': token }); }
 
 /* ---------- estado de UI ---------- */
@@ -473,6 +480,8 @@ async function boot(){
   if(!window.supabase){ $('app').innerHTML=`<div class="gate"><div class="gate-card"><div class="marca-plug" role="img" aria-label="Plug Comunicação" style="width:180px;margin:0 auto 8px"></div><p style="margin-top:14px;color:var(--red)">Não foi possível carregar a biblioteca do Supabase. Verifique a conexão e recarregue.</p></div></div>`; return; }
   const p=getParams();
   if(p.c){ return enterClient(p.c,p.p); }       // link do cliente (p.p = tarefa específica, se houver)
+  const { data:{ session } } = await clienteEquipe().auth.getSession();
+  if(session){ connectAgency(); return renderDashboard(); }
   renderLanding();
 }
 
@@ -485,22 +494,21 @@ function renderLanding(){
     <div class="marca-plug" role="img" aria-label="Plug Comunicação" style="width:180px;margin:0 auto 8px"></div>
     <div class="tag" style="margin-bottom:26px">APROVAÇÃO DE CONTEÚDO</div>
     <div style="text-align:left">
-      <div class="field"><label>Senha do painel</label><input id="lgPass" type="password" placeholder="••••••••" autofocus onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="field"><label>E-mail</label><input id="lgEmail" type="email" autocomplete="username" placeholder="voce@plugcomunicacao.com.br" onkeydown="if(event.key==='Enter')$('lgPass').focus()"></div>
+      <div class="field"><label>Senha</label><input id="lgPass" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-primary" id="lgBtn" style="width:100%" onclick="doLogin()">Entrar no painel</button>
     </div>
   </div></div>`;
-  setTimeout(()=>{ const el=$('lgPass'); if(el) el.focus(); },60);
+  setTimeout(()=>{ const el=$('lgEmail'); if(el) el.focus(); },60);
 }
 async function doLogin(){
-  const pass=$('lgPass').value.trim(); if(!pass) return toast('Digite a senha');
+  const email=$('lgEmail').value.trim(), pass=$('lgPass').value;
+  if(!email||!pass) return toast('Digite e-mail e senha');
   const btn=$('lgBtn'); if(btn){ btn.disabled=true; btn.textContent='Verificando…'; }
-  // valida a senha de verdade chamando a função do banco
-  const checker = makeClient({});
-  const { data, error } = await checker.rpc('check_agency_pass', { p: pass });
+  const { error } = await clienteEquipe().auth.signInWithPassword({ email, password:pass });
   if(btn){ btn.disabled=false; btn.textContent='Entrar no painel'; }
-  if(error){ console.error(error); return toast('Erro de conexão. Tente novamente.'); }
-  if(data!==true){ return toast('Senha incorreta'); }
-  CFG.agencyPass=pass; connectAgency(); renderDashboard();
+  if(error){ console.error(error); return toast(/invalid/i.test(error.message)?'E-mail ou senha incorretos':'Erro de conexão. Tente novamente.'); }
+  connectAgency(); renderDashboard();
 }
 
 /* ====================================================================
@@ -529,6 +537,7 @@ function shell(body){
         ${S.agency&&S.agency.logo?`<img class="av" src="${esc(S.agency.logo)}" style="object-fit:cover">`:`<div class="av">${esc((CFG.agencyName||'P').slice(0,2).toUpperCase())}</div>`}
         <div style="min-width:0"><div class="nm">${esc((S.agency&&S.agency.display_name)||CFG.agencyName||'Agência')}</div><div class="rl">${esc(CFG.agencyName)}</div></div>
       </div>
+      <button class="side-sair" onclick="doLogout()">Sair</button>
     </aside>
     <div class="main">
       <div class="topbar"><button class="icon-btn" onclick="toggleSide()">☰</button><div class="marca-plug" role="img" aria-label="Plug Comunicação" style="width:96px"></div></div>
@@ -1686,7 +1695,7 @@ async function renderSettings(){
     </div>
     <div class="tcard" style="padding:20px 24px;max-width:580px;margin-top:16px">
       <div style="font-size:13.5px;font-weight:700;margin-bottom:6px">🔒 Segurança</div>
-      <p style="font-size:13px;color:var(--ink-soft);line-height:1.6">Cada cliente acessa só as próprias tarefas, por um link com token secreto validado no banco (RLS). O painel é protegido por senha. Para trocar a senha, fale comigo que ajusto no Supabase.</p>
+      <p style="font-size:13px;color:var(--ink-soft);line-height:1.6">Cada cliente acessa só as próprias tarefas, por um link com token secreto validado no banco (RLS). O painel exige login da equipe (e-mail e senha). Novos usuários são criados no Supabase, em Authentication → Users.</p>
     </div>`);
 }
 function uploadLogo(input){
