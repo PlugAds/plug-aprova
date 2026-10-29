@@ -1809,9 +1809,12 @@ function checkClientPin(){
 // O app abre direto nas aprovações do cliente: o último link usado fica salvo no aparelho (ver boot).
 let _instPrompt = null;
 if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
-window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _instPrompt = e; const b=document.querySelector('#instBanner .ib-sim'); if(b) b.textContent='Instalar'; });
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _instPrompt = e; });
 const emApp = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const ehIphone = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+const ehSamsung = () => /SamsungBrowser/i.test(navigator.userAgent);
+// navegador embutido do WhatsApp/Instagram/Facebook: não deixa instalar, precisa abrir no navegador
+const ehNavegadorDeApp = () => /WhatsApp|Instagram|FBAN|FBAV|FB_IAB|; wv\)/i.test(navigator.userAgent);
 function lerLocal(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function gravarLocal(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 
@@ -1823,7 +1826,7 @@ function prepararAppCliente(c){
     if($('instBanner')) return;
     const b=document.createElement('div'); b.className='inst-banner'; b.id='instBanner';
     b.innerHTML=`<div class="ib-txt"><b>📲 Aprove mais rápido</b>Adicione à tela inicial e abra suas aprovações com um toque.</div>
-      <button class="ib-sim" onclick="instalarAppCliente()">${_instPrompt?'Instalar':'Como fazer'}</button>
+      <button class="ib-sim" onclick="instalarAppCliente()">Instalar</button>
       <button class="ib-nao" onclick="dispensarInstalacao()" aria-label="Agora não">✕</button>`;
     document.body.appendChild(b);
   }, 2500);
@@ -1836,9 +1839,14 @@ async function instalarAppCliente(){
     if(outcome==='accepted'){ dispensarInstalacao(); toast('Pronto! O app aparece na sua tela inicial.'); }
     return;
   }
+  const fora = ehIphone()
+    ? `<li>Toque nos <b>3 pontinhos</b> ou em <b>⋯</b> desta janela e escolha <b>Abrir no Safari</b>.</li>`
+    : `<li>Toque nos <b>3 pontinhos ⋮</b> desta janela e escolha <b>Abrir no Chrome</b> (ou <b>Abrir no navegador</b>).</li>`;
   const passos = ehIphone()
-    ? `<li>Abra este link no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (o quadrado com a seta ⬆️, na barra de baixo).</li><li>Role e toque em <b>Adicionar à Tela de Início</b>.</li><li>Toque em <b>Adicionar</b>.</li>`
-    : `<li>Toque nos <b>3 pontinhos ⋮</b> do navegador (no canto de cima).</li><li>Toque em <b>Adicionar à tela inicial</b> ou <b>Instalar app</b>.</li><li>Confirme em <b>Instalar</b>.</li><li>No navegador Samsung, use o menu <b>≡ → Adicionar página a → Tela inicial</b>.</li>`;
+    ? `${ehNavegadorDeApp()?fora:''}<li>No Safari, toque em <b>Compartilhar</b> (o quadrado com a seta ⬆️, na barra de baixo).</li><li>Role e toque em <b>Adicionar à Tela de Início</b>.</li><li>Toque em <b>Adicionar</b>.</li>`
+    : ehSamsung()
+    ? `<li>Toque no menu <b>≡</b> (canto de baixo, à direita).</li><li>Toque em <b>Adicionar página a</b> → <b>Tela inicial</b>.</li><li>Confirme em <b>Adicionar</b>.</li>`
+    : `${ehNavegadorDeApp()?fora:'<li>Se abriu pelo <b>WhatsApp</b>: toque nos <b>3 pontinhos ⋮</b> e escolha <b>Abrir no Chrome</b>.</li>'}<li>No Chrome, toque nos <b>3 pontinhos ⋮</b> (canto de cima, à direita).</li><li>Toque em <b>Adicionar à tela inicial</b> ou <b>Instalar app</b>.</li><li>Escolha <b>Instalar</b> e confirme.</li>`;
   openModal(`<div class="modal-head"><h3>📲 Adicionar à tela inicial</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body"><ol class="inst-passos">${passos}</ol>
       <p style="font-size:12.5px;color:var(--ink-soft);margin-top:6px">O ícone abre direto nas suas aprovações. É opcional: o link continua funcionando normalmente.</p></div>
