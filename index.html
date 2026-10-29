@@ -1827,10 +1827,15 @@ async function chamarAvisos(body){
   if(error){ let msg=error.message; try{ msg=(await error.context.json()).erro||msg; }catch(_){} throw new Error(msg); }
   return data;
 }
-function avisosAtivos(){ return pushSuportado() && Notification.permission==='granted' && lerLocal('aprova_avisos')==='1'; }
+// a marca de "avisos ativados" é separada para equipe e para cada cliente (o mesmo aparelho pode ser os dois)
+const marcaAvisos = () => MODE==='client' ? 'aprova_avisos_cli_'+clientToken : 'aprova_avisos_equipe';
+function avisosAtivos(){ return pushSuportado() && Notification.permission==='granted' && lerLocal(marcaAvisos())==='1'; }
 async function ativarAvisos(btn){
   if(!pushSuportado()){
     return toast(ehIphone() ? 'No iPhone, primeiro adicione à Tela de Início e abra pelo ícone' : 'Este navegador não recebe notificações');
+  }
+  if(Notification.permission==='denied'){
+    return toast('Notificações bloqueadas neste navegador (aba anônima sempre bloqueia). Libere em 🔒 ao lado do endereço → Permissões.');
   }
   const rotulo=btn?btn.innerHTML:''; if(btn){ btn.disabled=true; btn.textContent='Ativando…'; }
   try{
@@ -1842,7 +1847,7 @@ async function ativarAvisos(btn){
     let ins=await reg.pushManager.getSubscription();
     if(!ins) ins=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:base64ParaBytes(chave) });
     await chamarAvisos({ acao:'inscrever', inscricao:ins.toJSON(), token:MODE==='client'?clientToken:undefined });
-    gravarLocal('aprova_avisos','1');
+    gravarLocal(marcaAvisos(),'1');
     toast('🔔 Avisos ativados neste aparelho!');
     document.querySelectorAll('.avisos-card').forEach(el=>el.remove());
     const sb2=$('btnAvisosEquipe'); if(sb2) sb2.outerHTML=botaoAvisosEquipe();
