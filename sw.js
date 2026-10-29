@@ -2,6 +2,8 @@
 // Não guarda nada em cache: o app sempre carrega a versão atual do site.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+// mesmo vazio, o "fetch" precisa existir: o Android só instala como app de verdade (sem o selo do Chrome) com ele, como no Plug Social
+self.addEventListener('fetch', () => {});
 
 self.addEventListener('push', (e) => {
   let aviso = { titulo: 'Plug Aprova', corpo: 'Você tem uma novidade.', url: './' };
