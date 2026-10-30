@@ -2056,7 +2056,7 @@ document.addEventListener('visibilitychange', () => {
   if($('modalBg')&&$('modalBg').classList.contains('show')) return;
   if(Date.now()-(S._cCarregadoEm||0) > 60000) loadClientView();
 });
-// Tarefas do cliente em dois grupos: "Aguardando aprovação" e "Aprovadas" (o cliente tocou em "Enviar para a agência").
+// Tarefas do cliente em dois grupos: "Aguardando avaliação" e "Respondidas" (o cliente tocou em "Enviar para a agência").
 // Quando a agência manda material novo numa tarefa, ela volta para "Aguardando" (ver enviarAoCliente/togglePublish).
 const tarefaAprovada = (pr) => !!pr.month_ts;
 function tarefasDoFiltro(){ return (S.cProjects||[]).filter(x=>x.published && (S.cFiltro==='ok')===tarefaAprovada(x)); }
@@ -2069,7 +2069,7 @@ function barraStatusHTML(c){
   const pub=(S.cProjects||[]).filter(x=>x.published);
   const nPend=pub.filter(x=>!tarefaAprovada(x)).length, nOk=pub.length-nPend;
   const bt=(f,txt,n)=>`<button class="st-btn ${S.cFiltro===f?'on':''}" style="${S.cFiltro===f?`background:${c.color};border-color:${c.color}`:''}" onclick="filtrarTarefas('${f}')">${txt} <span>${n}</span></button>`;
-  return `<div class="status-pick">${bt('pend','⏳ Aguardando aprovação',nPend)}${bt('ok','✅ Aprovadas',nOk)}</div>`;
+  return `<div class="status-pick">${bt('pend','⏳ Aguardando avaliação',nPend)}${bt('ok','✅ Respondidas',nOk)}</div>`;
 }
 async function loadClientView(){
   const c=S.cClient;
@@ -2103,7 +2103,7 @@ async function renderClientView(){
   const p=S.cProjects.find(x=>x.id===S.cActiveProj);
   if(!p){
     const vazio = S.cFiltro==='ok'
-      ? `<div class="empty"><div class="em">📂</div><h3>Nenhuma tarefa aprovada ainda</h3><p>As tarefas que você enviar para a agência aparecem aqui para consulta.</p></div>`
+      ? `<div class="empty"><div class="em">📂</div><h3>Nenhuma tarefa respondida ainda</h3><p>As tarefas que você enviar para a agência aparecem aqui para consulta.</p></div>`
       : `<div class="empty"><div class="em">🎉</div><h3>Tudo em dia!</h3><p>Nenhum material aguardando aprovação. Avisamos quando chegar conteúdo novo.</p></div>`;
     $('app').innerHTML=`${clientHeader(c)}<div class="c-wrap">${cartaoAvisosCliente()}${barraStatusHTML(c)}${vazio}</div>`;
     return;
