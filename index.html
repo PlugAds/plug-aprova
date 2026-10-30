@@ -1914,6 +1914,9 @@ async function ativarAvisos(btn){
 }
 // aparelho com login da equipe: não oferece os avisos de cliente (a equipe abre os links só para conferir/copiar)
 const aparelhoDaEquipe = () => !!lerLocal('sb-gsioeuglijfmzbbgotum-auth-token');
+// quem da equipe também aprova como cliente e pode receber os avisos de cliente no mesmo aparelho
+const EQUIPE_TAMBEM_CLIENTE = ['rafael@plugcomunicacao.com.br'];
+function emailDaEquipe(){ try{ return (JSON.parse(lerLocal('sb-gsioeuglijfmzbbgotum-auth-token')||'{}').user||{}).email||''; }catch(e){ return ''; } }
 // 🔔 sininho: histórico do que cada um recebeu (cliente: só os dele; equipe: tudo)
 const marcaVisto = () => MODE==='client' ? 'aprova_visto_cli_'+clientToken : 'aprova_visto_equipe';
 function sininhoHTML(extraCls){ return `<button class="sininho ${extraCls||''}" onclick="abrirSininho()" aria-label="Notificações">🔔<span class="sin-n" style="display:none"></span></button>`; }
@@ -1943,10 +1946,15 @@ function abrirAviso(projectId){
   else renderProject(projectId);
 }
 function cartaoAvisosCliente(){
-  if(!AVISOS_LIGADOS || aparelhoDaEquipe() || avisosAtivos() || lerLocal('aprova_avisos_dispensado')) return '';
+  if(!AVISOS_LIGADOS || avisosAtivos() || lerLocal('aprova_avisos_dispensado')) return '';
+  // aparelho com login da equipe: só recebe avisos de cliente se pedir, cliente por cliente (ex.: quem também aprova pela Plug)
+  const equipe=aparelhoDaEquipe();
+  if(equipe && !EQUIPE_TAMBEM_CLIENTE.includes(emailDaEquipe().toLowerCase())) return '';
+  const titulo=equipe ? `Você está logado como equipe neste aparelho` : `Receba uma notificação quando tiver material para aprovação`;
+  const texto=equipe ? `Quer receber também os avisos de material novo de <strong>${esc(S.cClient.name)}</strong>?` : `Avisamos no seu celular assim que houver conteúdo novo.`;
   return `<div class="avisos-card"><div class="av-ic">🔔</div>
-    <div class="av-txt"><b>Receba uma notificação quando tiver material para aprovação</b>Avisamos no seu celular assim que houver conteúdo novo.</div>
-    <button class="btn btn-accent av-sim" onclick="ativarAvisos(this)">Ativar avisos</button>
+    <div class="av-txt"><b>${titulo}</b>${texto}</div>
+    <button class="btn btn-accent av-sim" onclick="ativarAvisos(this)">${equipe?'Receber avisos deste cliente':'Ativar avisos'}</button>
     <button class="av-nao" onclick="gravarLocal('aprova_avisos_dispensado','1');this.closest('.avisos-card').remove()" aria-label="Agora não">✕</button></div>`;
 }
 function botaoAvisosEquipe(){
