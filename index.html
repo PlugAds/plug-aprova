@@ -334,6 +334,8 @@
   .st-btn.on span{background:rgba(255,255,255,.25);color:#fff}
   @media (max-width:640px){ .st-btn{font-size:13px;padding:11px 6px} }
   .c-voltar{display:block;width:100%;background:var(--plug-blue-deep);color:#fff;border:none;padding:10px 16px;font-size:13px;font-weight:700;text-align:left}
+  .dl-wrap{margin-top:12px}
+  .dl-btn{width:100%;padding:13px;font-size:15px}
   /* guia visual de instalação no iPhone */
   .guia-ios{list-style:none;padding:0;margin:0}
   .guia-ios li{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-soft);font-size:14px;line-height:1.45}
@@ -891,7 +893,7 @@ async function renderClientPage(clientId){
       cards+=`<div class="ccard" onclick="renderProject('${p.id}')">
         <div class="swatch" style="background:${c.color}"></div>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-          <span class="chip chip-ink">${p.mode==='pauta_mensal'?'🗞️ Pauta mensal':'📸 Semanal'}</span>
+          <span class="chip chip-ink">${p.mode==='pauta_mensal'?'🗞️ Pauta mensal':p.mode==='projeto'?'🎨 Layouts':'📸 Semanal'}</span>
           ${p.published?'<span class="sb approved">● Publicado</span>':'<span class="sb pending">○ Rascunho</span>'}</div>
         <h3 style="margin-top:12px">${esc(p.title)}</h3>
         <div class="meta">${esc(p.period||'')} · ${st.total/2|0} posts</div>
@@ -966,7 +968,7 @@ function editProject(id,clientId){
   const p=id?S.projects.find(x=>x.id===id):null;
   const mode=p?(p.mode||'semanal'):'semanal';
   const lockMode = !!id; // não troca o modo de uma tarefa já criado (evita misturar itens)
-  const modeLabel = m => m==='mensal'?'🗓️ Cronograma mensal':m==='projeto'?'📦 Projeto':m==='pauta_mensal'?'🗞️ Pauta mensal':'📸 Pauta semanal';
+  const modeLabel = m => m==='mensal'?'🗓️ Cronograma mensal':m==='projeto'?'🎨 Layouts':m==='pauta_mensal'?'🗞️ Pauta mensal':'📸 Pauta semanal';
   openModal(`
     <div class="modal-head"><h3>${p?'Editar':'Nova'} tarefa</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
@@ -979,7 +981,7 @@ function editProject(id,clientId){
           <button type="button" class="modepick" data-m="pauta_mensal" onclick="pickMode('pauta_mensal')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
             <div style="font-weight:700;font-size:14px">🗞️ Pauta mensal</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Posts prontos com copy e criativo, aprovados um a um.</div></button>
           <button type="button" class="modepick" data-m="projeto" onclick="pickMode('projeto')" style="flex:1 1 30%;min-width:150px;text-align:left;padding:13px 15px;border:2px solid var(--line);border-radius:11px;background:#fff;cursor:pointer">
-            <div style="font-weight:700;font-size:14px">📦 Projeto</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Entrega ou tarefa avulsa: descrição + anexos para aprovar.</div></button>
+            <div style="font-weight:700;font-size:14px">🎨 Layouts</div><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Artes para aprovar: depois de aprovado, o cliente baixa o layout.</div></button>
         </div><input type="hidden" id="pMode" value="${mode}"></div>`}
       ${lockMode?`<input type="hidden" id="pMode" value="${mode}"><div class="chip ${mode==='mensal'?'chip-accent':'chip-ink'}" style="margin-bottom:14px">${modeLabel(mode)}</div>`:''}
       <div class="field"><label>Título</label><input id="pTitle" value="${p?esc(p.title):''}" placeholder="Ex.: Planejamento de Junho"></div>
@@ -992,12 +994,12 @@ function editProject(id,clientId){
 function pickMode(m){
   const inp=$('pMode'); if(inp) inp.value=m;
   document.querySelectorAll('.modepick').forEach(b=>{ const on=b.dataset.m===m; b.style.borderColor=on?'var(--accent)':'var(--line)'; b.style.background=on?'var(--accent-tint)':'#fff'; });
-  const t=$('pTitle'); if(t&&!t.value){ t.placeholder = m==='mensal'?'Ex.: Planejamento de Junho':m==='projeto'?'Ex.: Identidade visual, Campanha de aniversário…':m==='pauta_mensal'?'Ex.: Pauta de Junho':'Ex.: Pauta Semana 1'; }
+  const t=$('pTitle'); if(t&&!t.value){ t.placeholder = m==='mensal'?'Ex.: Planejamento de Junho':m==='projeto'?'Ex.: Layouts Black Friday, Cartão de visita…':m==='pauta_mensal'?'Ex.: Pauta de Junho':'Ex.: Pauta Semana 1'; }
 }
 async function saveProject(id,clientId){
   const title=$('pTitle').value.trim(); if(!title) return toast('Informe o título');
   const mode=$('pMode')?$('pMode').value:'semanal';
-  const kind = mode==='mensal'?'Mensal':mode==='projeto'?'Projeto':mode==='pauta_mensal'?'Pauta mensal':'Semanal';
+  const kind = mode==='mensal'?'Mensal':mode==='projeto'?'Layouts':mode==='pauta_mensal'?'Pauta mensal':'Semanal';
   const rec={ title, kind, period:$('pPeriod').value.trim(), mode };
   if(id){ const {error}=await sb.from('projects').update(rec).eq('id',id); if(error)return toast('Erro ao salvar'); closeModal(); renderProject(id); }
   else{ rec.client_id=clientId; rec.published=false;
@@ -1025,7 +1027,7 @@ async function renderProject(projectId){
   const { data:items } = await sb.from('items').select('*').eq('project_id',projectId).order('sort');
   S._items=items||[];
   const link=projectLinkFor(c,p);
-  const modeChip = isMonthly?'<span class="chip chip-accent">🗓️ Mensal</span>':isProject?'<span class="chip chip-accent">📦 Projeto</span>':p.mode==='pauta_mensal'?'<span class="chip chip-ink">🗞️ Pauta mensal</span>':'<span class="chip chip-ink">📸 Semanal</span>';
+  const modeChip = isMonthly?'<span class="chip chip-accent">🗓️ Mensal</span>':isProject?'<span class="chip chip-accent">🎨 Layouts</span>':p.mode==='pauta_mensal'?'<span class="chip chip-ink">🗞️ Pauta mensal</span>':'<span class="chip chip-ink">📸 Semanal</span>';
 
   const head=`
     <div class="page-head"><div>
@@ -1238,10 +1240,10 @@ function projectEditorBody(p,items){
         <div class="creative-prev" id="prev-${it.id}">${src?creativeMediaHTML(it):creativeEmptyHTML(it,'Sem anexo. Envie um arquivo, cole uma URL, ou deixe vazio.')}</div></div>
     </div></div>`; }).join('');
   return `
-    <div class="secbar"><div class="ico">📦</div><h3>Itens do projeto</h3><div class="spacer"></div>
+    <div class="secbar"><div class="ico">🎨</div><h3>Layouts</h3><div class="spacer"></div>
       <button class="btn btn-accent btn-sm" onclick="addProjItem('${p.id}')">＋ Adicionar item</button></div>
     <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 16px">Cada item é uma entrega ou tarefa: um título, a descrição e, se quiser, um anexo. O cliente aprova item a item e pode comentar.</p>
-    ${cards||`<div class="empty"><div class="em">📦</div><h3>Projeto vazio</h3><p>Adicione o primeiro item desta entrega.</p><br><button class="btn btn-accent" onclick="addProjItem('${p.id}')">＋ Adicionar item</button></div>`}
+    ${cards||`<div class="empty"><div class="em">🎨</div><h3>Nenhum layout ainda</h3><p>Adicione o primeiro layout.</p><br><button class="btn btn-accent" onclick="addProjItem('${p.id}')">＋ Adicionar item</button></div>`}
     ${items.length?`<div style="text-align:center;margin-top:16px"><button class="btn btn-ghost" onclick="addProjItem('${p.id}')">＋ Adicionar item</button></div>`:''}`;
 }
 async function addProjItem(pid){
@@ -2134,7 +2136,7 @@ function clientHeader(c,p){
     <div class="c-brand">${clientAvatar(c,'c-logo')}
       <div style="flex:1;min-width:0"><h1>${esc(c.name)}</h1><p>Aprovação de conteúdo · ${esc(CFG.agencyName)}</p></div>
       ${AVISOS_LIGADOS?sininhoHTML('sin-cliente'):''}</div>
-    ${p?`<div class="c-meta"><div>${esc(p.kind)} · <b>${esc(p.period||'')}</b></div><div>${esc(p.title)}</div></div>`:''}
+    ${p?`<div class="c-meta"><div>${esc(p.mode==='projeto'?'Layouts':p.kind)} · <b>${esc(p.period||'')}</b></div><div>${esc(p.title)}</div></div>`:''}
   </div></div>`;
 }
 
@@ -2160,7 +2162,7 @@ async function renderClientView(){
 
   // o cartão de avisos entra no topo de todas as telas do cliente, junto com o seletor de tarefas
   const lista=tarefasDoFiltro();
-  const picker=cartaoAvisosCliente()+barraStatusHTML(c)+(lista.length>1?`<div class="proj-pick">${lista.map(pr=>`<button class="proj-tab ${pr.id===S.cActiveProj?'active':''}" style="${pr.id===S.cActiveProj?`background:${c.color}`:''}" onclick="switchProj('${pr.id}')">${pr.mode==='mensal'?'🗓️ ':pr.mode==='pauta_mensal'?'🗞️ ':'📸 '}${esc(pr.title)}</button>`).join('')}</div>`:'');
+  const picker=cartaoAvisosCliente()+barraStatusHTML(c)+(lista.length>1?`<div class="proj-pick">${lista.map(pr=>`<button class="proj-tab ${pr.id===S.cActiveProj?'active':''}" style="${pr.id===S.cActiveProj?`background:${c.color}`:''}" onclick="switchProj('${pr.id}')">${pr.mode==='mensal'?'🗓️ ':pr.mode==='pauta_mensal'?'🗞️ ':pr.mode==='projeto'?'🎨 ':'📸 '}${esc(pr.title)}</button>`).join('')}</div>`:'');
 
   if(!p.published){
     document.querySelector('.c-wrap').innerHTML=picker+`<div class="empty"><div class="em">⏳</div><h3>Em preparação</h3><p>Esta tarefa ainda está sendo finalizada pela agência.</p></div>`;
@@ -2175,8 +2177,8 @@ async function renderClientView(){
     const cards=(items||[]).map((it,i)=>clientProjectCardHTML(it,i,dm,c)).join('');
     document.querySelector('.c-wrap').innerHTML=`
       ${picker}
-      <div class="secbar"><div class="ico" style="background:${c.color}">📦</div><h3>${esc(p.title)}</h3></div>
-      <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Veja cada item desta entrega. Aprove ou marque <b>reprovar</b> e descreva o ajuste.</p>
+      <div class="secbar"><div class="ico" style="background:${c.color}">🎨</div><h3>${esc(p.title)}</h3></div>
+      <p style="font-size:13.5px;color:var(--ink-soft);margin:-6px 0 18px">Veja cada layout. Aprove ou marque <b>reprovar</b> e descreva o ajuste. Depois de aprovado, é só baixar o arquivo.</p>
       ${cards||'<div class="empty"><p>Nenhum item disponível ainda.</p></div>'}
       <div class="send-block"><div class="send-inner"><div class="si">📤</div><h2>Finalizar aprovação</h2>
         <p>Suas respostas são salvas automaticamente. Confirme seu nome e clique em enviar para concluir.</p>
@@ -2411,6 +2413,29 @@ async function decideMonth(pid,val){
 
 function shade(hex){ try{ const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255; r=Math.round(r*.68);g=Math.round(g*.68);b=Math.round(b*.68); return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);}catch(e){return hex;} }
 
+// Baixa o(s) arquivo(s) do layout aprovado direto no aparelho (celular: pasta Downloads / Arquivos)
+async function baixarLayout(itemId, btn){
+  const it=(S.cItems||[]).find(x=>x.id===itemId); if(!it) return;
+  const arquivos=creativeList(it); if(!arquivos.length) return toast('Arquivo indisponível');
+  const rotulo=btn.innerHTML; btn.disabled=true; btn.textContent='Baixando…';
+  const base=((S.cClient&&S.cClient.name)||'layout')+' - '+(it.title||'layout');
+  const limpar=t=>t.replace(/[\\/:*?"<>|]+/g,'').trim();
+  for(let i=0;i<arquivos.length;i++){
+    const url=arquivos[i].url;
+    try{
+      const res=await fetch(url); if(!res.ok) throw new Error(res.status);
+      const blob=await res.blob();
+      const ext=(url.split('?')[0].match(/\.([a-z0-9]{2,5})$/i)||[,(blob.type.split('/')[1]||'jpg')])[1];
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+      a.download=limpar(base+(arquivos.length>1?' '+(i+1):''))+'.'+ext;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+      if(arquivos.length>1) await new Promise(r=>setTimeout(r,700));
+    }catch(e){ window.open(url,'_blank'); }   // link externo (Drive etc.): abre para baixar por lá
+  }
+  btn.disabled=false; btn.innerHTML=rotulo;
+  toast('⬇️ Layout baixado!');
+}
 function clientProjectCardHTML(it,i,dm,c){
   const accent=c.color; const src=it.creative_url||'';
   const blocks=[];
@@ -2421,7 +2446,11 @@ function clientProjectCardHTML(it,i,dm,c){
     blocks.push(`<div class="blk"><div class="blk-label"><span class="chip chip-ink">📎 Anexo</span></div>
       <div class="creative-prev">${creativeMediaHTML(it)}</div></div>`);
   }
-  blocks.push(`<div class="blk">${approveBoxHTML(it.id,'creative','Aprovação',dm)}</div>`);
+  // layout aprovado com arquivo: aparece o botão para baixar (some se reprovar ou desmarcar)
+  const temArquivo = src && !it.media_cleared && creativeList(it).length;
+  const aprovado = dm[it.id+'-creative'] && dm[it.id+'-creative'].status==='approved';
+  blocks.push(`<div class="blk">${approveBoxHTML(it.id,'creative','Aprovação',dm)}
+    ${temArquivo?`<div class="dl-wrap" id="dl-${it.id}" style="${aprovado?'':'display:none'}"><button class="btn btn-accent dl-btn" onclick="baixarLayout('${it.id}',this)">⬇️ Baixar layout aprovado</button></div>`:''}</div>`);
   return `<div class="post-card"><div class="post-head"><span class="pnum" style="background:${accent}">${i+1}</span>
     <div class="pinfo"><h3>${esc(it.title||'Item '+(i+1))}</h3></div></div>${blocks.join('')}</div>`;
 }
@@ -2467,6 +2496,7 @@ async function decide(itemId,type,val){
     delete S.cDecisions[key];
     ap.classList.remove('on'); rj.classList.remove('on'); box.classList.remove('is-approved','is-rejected');
     cf.classList.remove('show'); ts.classList.remove('show'); ts.textContent='';
+    const dl0=$('dl-'+itemId); if(dl0 && type==='creative') dl0.style.display='none';
     await sb.from('decisions').delete().eq('item_id',itemId).eq('kind',type);
     drawClientSchedule(); updateClientProgress(); return;
   }
@@ -2478,6 +2508,7 @@ async function decide(itemId,type,val){
   cf.classList.toggle('show',val==='rejected'); if(val==='rejected'&&$('nt-'+key))$('nt-'+key).focus();
   ts.textContent=(val==='approved'?'Aprovado':'Reprovado')+' em '+nowStr(); ts.classList.add('show');
   drawClientSchedule(); updateClientProgress();
+  const dl=$('dl-'+itemId); if(dl && type==='creative') dl.style.display = val==='approved' ? '' : 'none';
   const { error }=await sb.from('decisions').upsert(rec,{onConflict:'item_id,kind'});
   if(error){ console.error(error); toast('Erro ao salvar resposta'); }
 }
