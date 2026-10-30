@@ -327,6 +327,12 @@
   .sin-item span{display:block;font-size:13px;color:var(--ink-soft);margin-top:2px}
   .sin-item small{display:block;font-size:11.5px;color:var(--ink-faint);margin-top:5px}
   .sin-item small span{display:inline-block;margin-top:0}
+  .status-pick{display:flex;gap:8px;margin-bottom:14px}
+  .st-btn{flex:1;padding:12px 10px;border:1.5px solid var(--line);background:#fff;border-radius:12px;font-size:14px;font-weight:700;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;gap:8px}
+  .st-btn span{background:var(--line-soft);color:var(--ink);border-radius:99px;padding:1px 8px;font-size:12px}
+  .st-btn.on{color:#fff}
+  .st-btn.on span{background:rgba(255,255,255,.25);color:#fff}
+  @media (max-width:640px){ .st-btn{font-size:13px;padding:11px 6px} }
   /* guia visual de instalação no iPhone */
   .guia-ios{list-style:none;padding:0;margin:0}
   .guia-ios li{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-soft);font-size:14px;line-height:1.45}
@@ -373,7 +379,8 @@
     .send-inner{padding:22px 16px}
     .namewrap{flex-direction:column;align-items:stretch;gap:4px;max-width:none}
     .send-btns .btn{width:100%;padding:14px !important}
-    .proj-pick{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+    .proj-pick{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+    .proj-pick::-webkit-scrollbar{display:none}
     .proj-tab{white-space:nowrap}
   }
   @media (max-width:860px){
@@ -942,6 +949,7 @@ function enviarAoCliente(pid){
       if(error) return toast('❌ Erro ao publicar');
       p.published=true; renderProject(pid);
     }
+    if(p.month_ts){ await sb.from('projects').update({month_ts:null,month_status:null}).eq('id',pid); p.month_ts=null; p.month_status=null; }
     const n=await avisarCliente(pid);
     toast((n?'📤 Cliente avisado no celular 🔔.':'📤 Tarefa publicada.')+' Escolha a conversa no WhatsApp e envie.');
   })();
@@ -1453,7 +1461,7 @@ async function togglePublish(id,cur){
   const p=S.projects.find(x=>x.id===id);
   if(!cur){ const {count}=await sb.from('items').select('id',{count:'exact',head:true}).eq('project_id',id);
     if(!count) return toast('Adicione ao menos um item antes de publicar'); }
-  const { error }=await sb.from('projects').update({published:!cur}).eq('id',id);
+  const { error }=await sb.from('projects').update(cur?{published:false}:{published:true,month_ts:null,month_status:null}).eq('id',id);
   if(error) return toast('Erro ao publicar');
   if(!cur){
     renderProject(id);
@@ -2048,6 +2056,21 @@ document.addEventListener('visibilitychange', () => {
   if($('modalBg')&&$('modalBg').classList.contains('show')) return;
   if(Date.now()-(S._cCarregadoEm||0) > 60000) loadClientView();
 });
+// Tarefas do cliente em dois grupos: "Aguardando aprovação" e "Aprovadas" (o cliente tocou em "Enviar para a agência").
+// Quando a agência manda material novo numa tarefa, ela volta para "Aguardando" (ver enviarAoCliente/togglePublish).
+const tarefaAprovada = (pr) => !!pr.month_ts;
+function tarefasDoFiltro(){ return (S.cProjects||[]).filter(x=>x.published && (S.cFiltro==='ok')===tarefaAprovada(x)); }
+function filtrarTarefas(f){
+  S.cFiltro=f; S.cFocusProject=null;
+  S.cActiveProj=(tarefasDoFiltro()[0]||{}).id||null;
+  renderClientView();
+}
+function barraStatusHTML(c){
+  const pub=(S.cProjects||[]).filter(x=>x.published);
+  const nPend=pub.filter(x=>!tarefaAprovada(x)).length, nOk=pub.length-nPend;
+  const bt=(f,txt,n)=>`<button class="st-btn ${S.cFiltro===f?'on':''}" style="${S.cFiltro===f?`background:${c.color};border-color:${c.color}`:''}" onclick="filtrarTarefas('${f}')">${txt} <span>${n}</span></button>`;
+  return `<div class="status-pick">${bt('pend','⏳ Aguardando aprovação',nPend)}${bt('ok','✅ Aprovadas',nOk)}</div>`;
+}
 async function loadClientView(){
   const c=S.cClient;
   prepararAppCliente(c);
@@ -2057,9 +2080,10 @@ async function loadClientView(){
     $('app').innerHTML=clientHeader(c)+`<div class="c-wrap"><div class="empty"><div class="em">📭</div><h3>Nada por aqui ainda</h3><p>Assim que a ${esc(CFG.agencyName)} publicar uma tarefa, ele aparece aqui para sua aprovação.</p></div></div>`;
     return;
   }
-  const focus=S.cFocusProject && S.cProjects.find(x=>x.id===S.cFocusProject);
-  const publicadas=S.cProjects.filter(x=>x.published);
-  S.cActiveProj=focus?focus.id:(publicadas[0]||S.cProjects[0]).id;
+  const focus=S.cFocusProject && S.cProjects.find(x=>x.id===S.cFocusProject && x.published);
+  S.cFiltro = focus ? (tarefaAprovada(focus)?'ok':'pend') : (S.cFiltro||'pend');
+  const lista=tarefasDoFiltro();
+  S.cActiveProj = focus ? focus.id : (lista.find(x=>x.id===S.cActiveProj)||lista[0]||{}).id || null;
   S._cCarregadoEm=Date.now();
   renderClientView();
 }
@@ -2077,6 +2101,13 @@ async function renderClientView(){
   const c=S.cClient;
   if(AVISOS_LIGADOS) setTimeout(atualizarSininho, 300);
   const p=S.cProjects.find(x=>x.id===S.cActiveProj);
+  if(!p){
+    const vazio = S.cFiltro==='ok'
+      ? `<div class="empty"><div class="em">📂</div><h3>Nenhuma tarefa aprovada ainda</h3><p>As tarefas que você enviar para a agência aparecem aqui para consulta.</p></div>`
+      : `<div class="empty"><div class="em">🎉</div><h3>Tudo em dia!</h3><p>Nenhum material aguardando aprovação. Avisamos quando chegar conteúdo novo.</p></div>`;
+    $('app').innerHTML=`${clientHeader(c)}<div class="c-wrap">${cartaoAvisosCliente()}${barraStatusHTML(c)}${vazio}</div>`;
+    return;
+  }
   $('app').innerHTML=`${clientHeader(c,p)}
     <div class="c-sub" style="background:${shade(c.color)}"><div class="inner"><span class="lbl">Progresso</span><div class="c-track"><i id="cFill"></i></div><span class="c-count" id="cCount"></span></div></div>
     <div class="c-wrap"><div class="loading"><div class="spin"></div><p>Carregando itens…</p></div></div>`;
@@ -2087,7 +2118,8 @@ async function renderClientView(){
   S.cItems=items||[]; S.cDecisions=dm; S.cSender=sender;
 
   // o cartão de avisos entra no topo de todas as telas do cliente, junto com o seletor de tarefas
-  const picker=cartaoAvisosCliente()+((!S.cFocusProject && S.cProjects.length>1)?`<div class="proj-pick">${S.cProjects.filter(pr=>pr.published).map(pr=>`<button class="proj-tab ${pr.id===S.cActiveProj?'active':''}" style="${pr.id===S.cActiveProj?`background:${c.color}`:''}" onclick="switchProj('${pr.id}')">${pr.mode==='mensal'?'🗓️ ':pr.mode==='pauta_mensal'?'🗞️ ':'📸 '}${esc(pr.title)}</button>`).join('')}</div>`:'');
+  const lista=tarefasDoFiltro();
+  const picker=cartaoAvisosCliente()+barraStatusHTML(c)+(lista.length>1?`<div class="proj-pick">${lista.map(pr=>`<button class="proj-tab ${pr.id===S.cActiveProj?'active':''}" style="${pr.id===S.cActiveProj?`background:${c.color}`:''}" onclick="switchProj('${pr.id}')">${pr.mode==='mensal'?'🗓️ ':pr.mode==='pauta_mensal'?'🗞️ ':'📸 '}${esc(pr.title)}</button>`).join('')}</div>`:'');
 
   if(!p.published){
     document.querySelector('.c-wrap').innerHTML=picker+`<div class="empty"><div class="em">⏳</div><h3>Em preparação</h3><p>Esta tarefa ainda está sendo finalizada pela agência.</p></div>`;
@@ -2142,7 +2174,9 @@ async function finalizarEnvio(){
   // garante que o nome está salvo nas respostas
   await syncSender(nm); S.cSender=nm;
   // marca o envio no projeto (pra agência ver que foi finalizado)
-  try{ await sb.from('projects').update({month_sender:nm, month_ts:new Date().toISOString()}).eq('id',S.cActiveProj); }catch(e){}
+  const agora=new Date().toISOString();
+  try{ await sb.from('projects').update({month_sender:nm, month_ts:agora}).eq('id',S.cActiveProj); }catch(e){}
+  const pa=S.cProjects.find(x=>x.id===S.cActiveProj); if(pa) pa.month_ts=agora;
   avisarEquipe(S.cActiveProj);
   const sub=document.querySelector('.send-inner');
   if(sub){ sub.innerHTML=`<div class="si">✅</div><h2>Aprovação enviada!</h2><p style="max-width:420px;margin:8px auto 0">Tudo certo, ${esc(nm)}. A ${esc(CFG.agencyName)} já recebeu suas respostas e observações. Você pode fechar esta página.</p>`; }
@@ -2301,7 +2335,9 @@ async function finalizarEnvioMes(pid){
   if(!nm) return toast('Por favor, informe seu nome antes de enviar');
   S._mSender=nm;
   // marca quem enviou e quando (o status do mês passa a refletir "respondido")
-  await sb.from('projects').update({month_sender:nm, month_ts:new Date().toISOString(), month_status:'responded'}).eq('id',pid);
+  const agora=new Date().toISOString();
+  await sb.from('projects').update({month_sender:nm, month_ts:agora, month_status:'responded'}).eq('id',pid);
+  const pa=S.cProjects.find(x=>x.id===pid); if(pa) pa.month_ts=agora;
   avisarEquipe(pid);
   const sub=document.querySelector('.send-inner');
   if(sub){ sub.innerHTML=`<div class="si">✅</div><h2>Respostas enviadas!</h2><p style="max-width:420px;margin:8px auto 0">Tudo certo, ${esc(nm)}. A ${esc(CFG.agencyName)} já recebeu suas aprovações e comentários. Você pode fechar esta página.</p>`; }
