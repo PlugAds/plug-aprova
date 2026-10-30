@@ -333,6 +333,7 @@
   .st-btn.on{color:#fff}
   .st-btn.on span{background:rgba(255,255,255,.25);color:#fff}
   @media (max-width:640px){ .st-btn{font-size:13px;padding:11px 6px} }
+  .c-voltar{display:block;width:100%;background:var(--plug-blue-deep);color:#fff;border:none;padding:10px 16px;font-size:13px;font-weight:700;text-align:left}
   /* guia visual de instalação no iPhone */
   .guia-ios{list-style:none;padding:0;margin:0}
   .guia-ios li{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-soft);font-size:14px;line-height:1.45}
@@ -617,6 +618,7 @@ function shell(body){
       <div class="nav-sec">OPERAÇÃO</div>
       ${navItem('storage','▤','Armazenamento')}
       ${navItem('settings','⚙','Configurações')}
+      ${souEquipeECliente()?`<div class="nav-sec">MINHA APROVAÇÃO</div><button class="nav-item" onclick="abrirMinhasAprovacoes()"><span class="ic">✅</span>Minhas aprovações</button>`:''}
       <div class="side-foot" onclick="renderSettings()" style="cursor:pointer" title="Editar dados da agência">
         ${S.agency&&S.agency.logo?`<img class="av" src="${esc(S.agency.logo)}" style="object-fit:cover">`:`<div class="av">${esc((CFG.agencyName||'P').slice(0,2).toUpperCase())}</div>`}
         <div style="min-width:0"><div class="nm">${esc((S.agency&&S.agency.display_name)||CFG.agencyName||'Agência')}</div><div class="rl">${esc(CFG.agencyName)}</div></div>
@@ -1843,6 +1845,20 @@ async function saveSettings(){
 /* ====================================================================
    MODO CLIENTE (entrada pelo link)
    ==================================================================== */
+// Rafael é da equipe e também aprova os conteúdos da própria Plug como cliente:
+// do painel ele abre a tela de cliente da Plug Comunicação e volta ao painel sem trocar de login
+const CLIENTE_DA_EQUIPE = 'Plug Comunicação';
+function souEquipeECliente(){ return EQUIPE_TAMBEM_CLIENTE.includes(emailDaEquipe().toLowerCase()); }
+function abrirMinhasAprovacoes(){
+  const c=(S.clients||[]).find(x=>(x.name||'').trim().toLowerCase()===CLIENTE_DA_EQUIPE.toLowerCase());
+  if(!c||!c.access_token) return toast('Cliente "Plug Comunicação" não encontrado no cadastro');
+  history.replaceState(null,'',location.pathname+'#/c/'+c.access_token);
+  enterClient(c.access_token);
+}
+function voltarAoPainel(){
+  history.replaceState(null,'',location.pathname);
+  S.cFocusProject=null; S.cFiltro=null; connectAgency(); renderDashboard();
+}
 async function enterClient(token,focusProjectId){
   $('app').innerHTML=`<div class="loading"><div class="spin"></div><p>Abrindo suas aprovações…</p></div>`;
   connectClient(token);
@@ -1935,8 +1951,13 @@ async function abrirSininho(){
     const quando=new Date(a.criado_em).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
     return `<button class="sin-item" onclick="abrirAviso('${a.project_id||''}','${a.client_id||''}')"><b>${esc(a.titulo)}</b><span>${esc(a.corpo)}</span><small>${quando}</small></button>`;
   }).join('');
+  // no cliente, o sininho sempre oferece (re)ativar os avisos neste aparelho, sem depender do cartão
+  const podeCliente = MODE==='client' && (!aparelhoDaEquipe() || EQUIPE_TAMBEM_CLIENTE.includes(emailDaEquipe().toLowerCase()));
+  const ativar = podeCliente ? `<div style="display:flex;align-items:center;gap:10px;background:var(--plug-blue-tint);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <span style="flex:1;font-size:13px;color:var(--ink-soft)">Avisos neste aparelho: <b>${avisosAtivos()?'ativados ✅':'desativados'}</b></span>
+      <button class="btn btn-accent btn-sm" onclick="ativarAvisos(this)">${avisosAtivos()?'Reativar':'Ativar avisos'}</button></div>` : '';
   openModal(`<div class="modal-head"><h3>🔔 Notificações</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
-    <div class="modal-body" style="padding-top:6px">${lista||`<p style="color:var(--ink-soft);font-size:14px;padding:18px 0;text-align:center">${MODE==='client'?'Nenhuma notificação ainda.':'Nenhuma resposta de cliente ainda.'}</p>`}</div>`);
+    <div class="modal-body" style="padding-top:6px">${ativar}${lista||`<p style="color:var(--ink-soft);font-size:14px;padding:18px 0;text-align:center">${MODE==='client'?'Nenhuma notificação ainda.':'Nenhuma resposta de cliente ainda.'}</p>`}</div>`);
   if(S._avisos&&S._avisos[0]) gravarLocal(marcaVisto(), S._avisos[0].criado_em);
   document.querySelectorAll('.sininho .sin-n').forEach(el=>el.style.display='none');
 }
@@ -2108,7 +2129,8 @@ async function loadClientView(){
 }
 
 function clientHeader(c,p){
-  return `<div class="c-header" style="background:${c.color}"><div class="inner">
+  const voltar = souEquipeECliente() ? `<button class="c-voltar" onclick="voltarAoPainel()">← Voltar ao painel</button>` : '';
+  return `${voltar}<div class="c-header" style="background:${c.color}"><div class="inner">
     <div class="c-brand">${clientAvatar(c,'c-logo')}
       <div style="flex:1;min-width:0"><h1>${esc(c.name)}</h1><p>Aprovação de conteúdo · ${esc(CFG.agencyName)}</p></div>
       ${AVISOS_LIGADOS?sininhoHTML('sin-cliente'):''}</div>
