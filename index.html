@@ -584,6 +584,7 @@ function renderLanding(){
       <div class="field"><label>E-mail</label><input id="lgEmail" type="email" autocomplete="username" placeholder="voce@plugcomunicacao.com.br" onkeydown="if(event.key==='Enter')$('lgPass').focus()"></div>
       <div class="field"><label>Senha</label><input id="lgPass" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-primary" id="lgBtn" style="width:100%" onclick="doLogin()">Entrar no painel</button>
+      <p style="font-size:12.5px;color:var(--ink-faint);text-align:center;margin-top:14px;line-height:1.5">Acesso da equipe Plug.<br>É cliente? Abra pelo link de aprovação que você recebeu.</p>
     </div>
   </div></div>`;
   setTimeout(()=>{ const el=$('lgEmail'); if(el) el.focus(); },60);
@@ -2039,6 +2040,12 @@ function gravarLocal(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 function prepararAppCliente(c){
   // guarda o link geral do cliente (sem /p/tarefa): o app sempre abre na tarefa mais recente
   gravarLocal('aprova_link_cliente', location.origin+location.pathname+'#/c/'+clientToken);
+  // iPhone: o app da Tela de Início não compartilha a memória do Safari e abriria no endereço geral (login).
+  // Sem o manifest, o iPhone salva o ícone com o endereço atual: o link do próprio cliente.
+  if(ehIphone()){
+    const m=document.querySelector('link[rel="manifest"]'); if(m) m.remove();
+    if(location.hash.includes('/p/')) history.replaceState(null,'',location.pathname+'#/c/'+clientToken);
+  }
   // o aviso de instalar só aparece no celular/tablet
   if(emApp() || lerLocal('aprova_inst_dispensado') || !matchMedia('(pointer:coarse)').matches) return;
   setTimeout(()=>{
