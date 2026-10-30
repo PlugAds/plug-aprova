@@ -932,7 +932,7 @@ function copyText(t,msg){ navigator.clipboard.writeText(t).then(()=>toast(msg||'
 function enviarAoCliente(pid){
   const p=S.projects.find(x=>x.id===pid); const c=p&&S.clients.find(x=>x.id===p.client_id); if(!p||!c) return;
   const link=projectLinkFor(c,p);
-  const msg=`Olá! Tem material novo para aprovação — ${p.title||c.name}.\n\nAcesse: ${link}\n\nÉ só aprovar cada item ou marcar "reprovar" e descrever o ajuste. Obrigado!`;
+  const msg=`Olá! 😊 Os conteúdos de *${p.title||c.name}* estão prontos para sua aprovação:\n👉 ${link}\n\nAprove ou peça ajustes direto pelo link. Qualquer dúvida, estamos por aqui!\nEquipe Plug Comunicação`;
   let fone=(c.whatsapp_cliente||'').replace(/\D/g,''); if(fone && fone.length<=11) fone='55'+fone;
   // abre o WhatsApp já no clique (depois de esperar o banco, o navegador bloquearia a janela)
   window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`,'_blank');
@@ -1912,7 +1912,8 @@ function sininhoHTML(extraCls){ return `<button class="sininho ${extraCls||''}" 
 async function atualizarSininho(){
   try{
     const { avisos }=await chamarAvisos({ acao:'historico', token:MODE==='client'?clientToken:undefined });
-    S._avisos=avisos||[];
+    // equipe: só as respostas dos clientes (reprovações e envios), não o que foi mandado a eles
+    S._avisos=(avisos||[]).filter(a=>MODE==='client'||a.para==='equipe');
     const visto=lerLocal(marcaVisto())||''; const novos=S._avisos.filter(a=>a.criado_em>visto).length;
     document.querySelectorAll('.sininho .sin-n').forEach(el=>{ el.textContent=novos>9?'9+':novos; el.style.display=novos?'flex':'none'; });
   }catch(e){ console.warn('sininho:', e.message); }
@@ -1921,11 +1922,10 @@ async function abrirSininho(){
   await atualizarSininho();
   const lista=(S._avisos||[]).map(a=>{
     const quando=new Date(a.criado_em).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
-    const cli=MODE!=='client'&&a.para==='cliente'?'<span class="chip chip-ink" style="margin-right:6px">para o cliente</span>':'';
-    return `<button class="sin-item" onclick="abrirAviso('${a.project_id||''}','${a.client_id||''}')"><b>${esc(a.titulo)}</b><span>${esc(a.corpo)}</span><small>${cli}${quando}</small></button>`;
+    return `<button class="sin-item" onclick="abrirAviso('${a.project_id||''}','${a.client_id||''}')"><b>${esc(a.titulo)}</b><span>${esc(a.corpo)}</span><small>${quando}</small></button>`;
   }).join('');
   openModal(`<div class="modal-head"><h3>🔔 Notificações</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
-    <div class="modal-body" style="padding-top:6px">${lista||'<p style="color:var(--ink-soft);font-size:14px;padding:18px 0;text-align:center">Nenhuma notificação ainda.</p>'}</div>`);
+    <div class="modal-body" style="padding-top:6px">${lista||`<p style="color:var(--ink-soft);font-size:14px;padding:18px 0;text-align:center">${MODE==='client'?'Nenhuma notificação ainda.':'Nenhuma resposta de cliente ainda.'}</p>`}</div>`);
   if(S._avisos&&S._avisos[0]) gravarLocal(marcaVisto(), S._avisos[0].criado_em);
   document.querySelectorAll('.sininho .sin-n').forEach(el=>el.style.display='none');
 }
