@@ -315,6 +315,27 @@
   .side-avisos{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:12px;font-weight:600;padding:9px;border-radius:9px;margin-top:10px;text-align:center}
   .side-avisos.on{background:none;border-color:transparent;color:rgba(255,255,255,.6);font-weight:500;padding:6px}
   @media (max-width:640px){ .avisos-card .av-sim{width:100%} }
+  .sininho{position:relative;background:none;border:none;font-size:20px;line-height:1;padding:6px;cursor:pointer}
+  .sin-cliente{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);border-radius:12px;width:44px;height:44px;flex-shrink:0;margin-left:10px}
+  .c-brand{flex:1;min-width:240px}
+  .sin-topo{margin-left:auto}
+  .sin-n{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:99px;background:var(--red);color:#fff;font-size:10.5px;font-weight:800;align-items:center;justify-content:center;padding:0 4px}
+  .side-avisos .sininho{display:inline-block;padding:0;font-size:0;width:10px;height:10px;vertical-align:top}
+  .sin-item{display:block;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line-soft);padding:12px 2px}
+  .sin-item:last-child{border-bottom:none}
+  .sin-item b{display:block;font-size:14px;color:var(--ink)}
+  .sin-item span{display:block;font-size:13px;color:var(--ink-soft);margin-top:2px}
+  .sin-item small{display:block;font-size:11.5px;color:var(--ink-faint);margin-top:5px}
+  .sin-item small span{display:inline-block;margin-top:0}
+  /* guia visual de instalação no iPhone */
+  .guia-ios{list-style:none;padding:0;margin:0}
+  .guia-ios li{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-soft);font-size:14px;line-height:1.45}
+  .guia-ios li:last-child{border-bottom:none}
+  .guia-ios .n{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .ios-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:5px 9px;font-weight:600;font-size:13px;color:#007AFF;white-space:nowrap;vertical-align:middle}
+  .ios-chip svg{width:16px;height:16px}
+  .ios-seta{position:fixed;left:50%;bottom:calc(8px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:1001;font-size:34px;animation:iosSeta 1s ease-in-out infinite;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+  @keyframes iosSeta{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,10px)}}
   /* ---------- tela do cliente no celular: botões grandes, progresso sempre visível ---------- */
   .inst-banner{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:300;background:var(--plug-blue-deep);color:#fff;border-radius:14px;box-shadow:var(--shadow-lg);padding:13px 14px;display:flex;align-items:center;gap:12px;max-width:520px;margin:0 auto}
   .inst-banner .ib-txt{flex:1;font-size:13px;line-height:1.4}
@@ -503,7 +524,7 @@ const S = { view:null, clientId:null, projectId:null, pollTimer:null,
 
 /* ---------- modal ---------- */
 function openModal(html){ $('modalBox').innerHTML=html; $('modalBg').classList.add('show'); }
-function closeModal(){ $('modalBg').classList.remove('show'); }
+function closeModal(){ $('modalBg').classList.remove('show'); const seta=$('iosSeta'); if(seta) seta.remove(); }
 $('modalBg').addEventListener('click',e=>{ if(e.target===$('modalBg')) closeModal(); });
 function confirmDialog(title,msg,onYes,danger){
   openModal(`<div class="modal-head"><h3>${esc(title)}</h3></div>
@@ -593,11 +614,12 @@ function shell(body){
         ${S.agency&&S.agency.logo?`<img class="av" src="${esc(S.agency.logo)}" style="object-fit:cover">`:`<div class="av">${esc((CFG.agencyName||'P').slice(0,2).toUpperCase())}</div>`}
         <div style="min-width:0"><div class="nm">${esc((S.agency&&S.agency.display_name)||CFG.agencyName||'Agência')}</div><div class="rl">${esc(CFG.agencyName)}</div></div>
       </div>
+      ${AVISOS_LIGADOS?`<button class="side-avisos" onclick="abrirSininho()">🔔 Notificações <span class="sininho"><span class="sin-n" style="display:none"></span></span></button>`:''}
       ${botaoAvisosEquipe()}
       <button class="side-sair" onclick="doLogout()">Sair</button>
     </aside>
     <div class="main">
-      <div class="topbar"><button class="icon-btn" onclick="toggleSide()">☰</button><div class="marca-plug" role="img" aria-label="Plug Comunicação" style="width:96px"></div></div>
+      <div class="topbar"><button class="icon-btn" onclick="toggleSide()">☰</button><div class="marca-plug" role="img" aria-label="Plug Comunicação" style="width:96px"></div>${AVISOS_LIGADOS?sininhoHTML('sin-topo'):''}</div>
       <div class="content" id="content">${body}</div>
     </div>
   </div>`;
@@ -615,6 +637,7 @@ function nav(view){
    CARREGAMENTO DE DADOS (agência)
    ==================================================================== */
 async function loadAll(){
+  if(AVISOS_LIGADOS && MODE==='agency') setTimeout(atualizarSininho, 800);
   const { data:clients, error:e1 } = await sb.from('clients').select('*').order('created_at');
   if(e1){ toast('Erro ao carregar clientes'); console.error(e1); return false; }
   const { data:projects } = await sb.from('projects').select('*').order('created_at');
@@ -773,6 +796,8 @@ function editClient(id){
         <div style="display:flex;gap:8px;flex-wrap:wrap" id="palette">
           ${PALETTE.map(p=>`<button onclick="pickColor('${p}')" data-c="${p}" class="swcolor" style="background:${p};border-color:${p===color?'var(--ink)':'transparent'}"></button>`).join('')}
         </div><input type="hidden" id="cColor" value="${color}"></div>
+      <div class="field"><label>WhatsApp do cliente (opcional)</label><input id="cWa" inputmode="tel" value="${c?esc(c.whatsapp_cliente||''):''}" placeholder="13 99999-9999">
+        <p class="hint">Se a aprovação vai num <b>grupo</b>, deixe vazio: o "Enviar ao cliente" abre o WhatsApp com a mensagem pronta e você escolhe o grupo.</p></div>
       <div class="field"><label>PIN do cliente (opcional)</label><input id="cPin" maxlength="8" value="${c?esc(c.pin||''):''}" placeholder="ex.: 4 dígitos — deixe vazio para abrir só com o link">
         <p class="hint">Se preenchido, o cliente digita este PIN ao abrir o link. Camada extra de proteção.</p></div>
     </div>
@@ -802,7 +827,7 @@ function removeClientLogo(){ S._clientLogoTmp=''; const prev=$('cLogoPrev'); if(
 function pickColor(c){ $('cColor').value=c; document.querySelectorAll('.swcolor').forEach(b=>b.style.borderColor=(b.dataset.c===c?'var(--ink)':'transparent')); const prev=$('cLogoPrev'); if(prev&&!S._clientLogoTmp) prev.style.background=c; }
 async function saveClient(id){
   const name=$('cName').value.trim(); if(!name) return toast('Informe o nome');
-  const rec={ name, initials:($('cInit').value.trim()||name.slice(0,2)).toUpperCase(), contact:$('cContact').value.trim(), color:$('cColor').value, pin:$('cPin').value.trim()||null, logo:S._clientLogoTmp||null };
+  const rec={ name, initials:($('cInit').value.trim()||name.slice(0,2)).toUpperCase(), contact:$('cContact').value.trim(), color:$('cColor').value, pin:$('cPin').value.trim()||null, logo:S._clientLogoTmp||null, whatsapp_cliente:$('cWa').value.replace(/\D/g,'')||null };
   let res;
   if(id){ res=await sb.from('clients').update(rec).eq('id',id); }
   else { res=await sb.from('clients').insert(rec); }
@@ -903,6 +928,24 @@ function showClientLink(clientId){
     </div>`);
 }
 function copyText(t,msg){ navigator.clipboard.writeText(t).then(()=>toast(msg||'Copiado!')).catch(()=>toast('Não foi possível copiar')); }
+// Um toque: publica (se precisar), avisa o cliente no celular e abre o WhatsApp dele com a mensagem pronta
+function enviarAoCliente(pid){
+  const p=S.projects.find(x=>x.id===pid); const c=p&&S.clients.find(x=>x.id===p.client_id); if(!p||!c) return;
+  const link=projectLinkFor(c,p);
+  const msg=`Olá! Tem material novo para aprovação — ${p.title||c.name}.\n\nAcesse: ${link}\n\nÉ só aprovar cada item ou marcar "reprovar" e descrever o ajuste. Obrigado!`;
+  let fone=(c.whatsapp_cliente||'').replace(/\D/g,''); if(fone && fone.length<=11) fone='55'+fone;
+  // abre o WhatsApp já no clique (depois de esperar o banco, o navegador bloquearia a janela)
+  window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`,'_blank');
+  (async()=>{
+    if(!p.published){
+      const { error }=await sb.from('projects').update({published:true}).eq('id',pid);
+      if(error) return toast('❌ Erro ao publicar');
+      p.published=true; renderProject(pid);
+    }
+    const n=await avisarCliente(pid);
+    toast((n?'📤 Cliente avisado no celular 🔔.':'📤 Tarefa publicada.')+' Escolha a conversa no WhatsApp e envie.');
+  })();
+}
 function shareWa(name,link){
   const msg=`Olá! Segue o link para aprovação do conteúdo — ${name}.\n\nAcesse: ${link}\n\nÉ só aprovar cada item ou marcar "reprovar" e descrever o ajuste. Obrigado!`;
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
@@ -984,12 +1027,13 @@ async function renderProject(projectId){
         <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red-line)" onclick="delProject('${p.id}','${c.id}')">🗑 Excluir</button>
         <button class="btn btn-ghost" onclick="renderTracking('${p.id}')">📊 Respostas</button>
         ${p.published?`<button class="btn btn-primary" onclick="togglePublish('${p.id}',true)">✓ Publicado</button>`
-          :`<button class="btn btn-accent" onclick="togglePublish('${p.id}',false)">🚀 Publicar</button>`}</div></div>
+          :`<button class="btn btn-ghost" onclick="togglePublish('${p.id}',false)">🚀 Publicar</button>`}
+        <button class="btn btn-accent" onclick="enviarAoCliente('${p.id}')">📤 Enviar ao cliente</button></div></div>
     ${p.published?`<div class="tcard" style="padding:14px 17px;margin-bottom:8px;display:flex;align-items:center;gap:13px;flex-wrap:wrap">
         <span style="font-weight:700;font-size:13px">🔗 Link desta tarefa:</span>
         <div class="link-box" style="flex:1;min-width:240px"><code>${esc(link)}</code></div>
-        <button class="btn btn-ghost btn-sm" onclick="copyText('${esc(link)}','Link copiado!')">Copiar</button>
-        <button class="btn btn-ghost btn-sm" onclick="shareWa('${esc(c.name)}','${esc(link)}')">WhatsApp</button></div>
+        <button class="btn btn-accent btn-sm" onclick="enviarAoCliente('${p.id}')">📤 Enviar ao cliente</button>
+        <button class="btn btn-ghost btn-sm" onclick="copyText('${esc(link)}','Link copiado!')">Copiar</button></div>
       <p class="hint" style="margin:-4px 0 8px">Esse link abre só esta tarefa, sem misturar com as outras do cliente.</p>`:''}`;
 
   if(isMonthly){ return shell(head + monthlyEditorBody(p,items||[])); }
@@ -1834,8 +1878,9 @@ async function chamarAvisos(body){
 const marcaAvisos = () => MODE==='client' ? 'aprova_avisos_cli_'+clientToken : 'aprova_avisos_equipe';
 function avisosAtivos(){ return pushSuportado() && Notification.permission==='granted' && lerLocal(marcaAvisos())==='1'; }
 async function ativarAvisos(btn){
+  if(ehIphone() && !emApp()) return guiaIphone(true);   // no iPhone, só pelo ícone na tela de início
   if(!pushSuportado()){
-    return toast(ehIphone() ? 'No iPhone, primeiro adicione à Tela de Início e abra pelo ícone' : 'Este navegador não recebe notificações');
+    return toast(ehIphone() ? 'Atualize o iPhone (iOS 16.4 ou mais novo) para receber avisos' : 'Este navegador não recebe notificações');
   }
   if(Notification.permission==='denied'){
     return toast('Notificações bloqueadas. Toque no ícone ao lado do endereço → Permissões → Notificações → Permitir, e tente de novo.');
@@ -1859,8 +1904,38 @@ async function ativarAvisos(btn){
     if(btn){ btn.disabled=false; btn.innerHTML=rotulo; }
   }
 }
+// aparelho com login da equipe: não oferece os avisos de cliente (a equipe abre os links só para conferir/copiar)
+const aparelhoDaEquipe = () => !!lerLocal('sb-gsioeuglijfmzbbgotum-auth-token');
+// 🔔 sininho: histórico do que cada um recebeu (cliente: só os dele; equipe: tudo)
+const marcaVisto = () => MODE==='client' ? 'aprova_visto_cli_'+clientToken : 'aprova_visto_equipe';
+function sininhoHTML(extraCls){ return `<button class="sininho ${extraCls||''}" onclick="abrirSininho()" aria-label="Notificações">🔔<span class="sin-n" style="display:none"></span></button>`; }
+async function atualizarSininho(){
+  try{
+    const { avisos }=await chamarAvisos({ acao:'historico', token:MODE==='client'?clientToken:undefined });
+    S._avisos=avisos||[];
+    const visto=lerLocal(marcaVisto())||''; const novos=S._avisos.filter(a=>a.criado_em>visto).length;
+    document.querySelectorAll('.sininho .sin-n').forEach(el=>{ el.textContent=novos>9?'9+':novos; el.style.display=novos?'flex':'none'; });
+  }catch(e){ console.warn('sininho:', e.message); }
+}
+async function abrirSininho(){
+  await atualizarSininho();
+  const lista=(S._avisos||[]).map(a=>{
+    const quando=new Date(a.criado_em).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+    const cli=MODE!=='client'&&a.para==='cliente'?'<span class="chip chip-ink" style="margin-right:6px">para o cliente</span>':'';
+    return `<button class="sin-item" onclick="abrirAviso('${a.project_id||''}','${a.client_id||''}')"><b>${esc(a.titulo)}</b><span>${esc(a.corpo)}</span><small>${cli}${quando}</small></button>`;
+  }).join('');
+  openModal(`<div class="modal-head"><h3>🔔 Notificações</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" style="padding-top:6px">${lista||'<p style="color:var(--ink-soft);font-size:14px;padding:18px 0;text-align:center">Nenhuma notificação ainda.</p>'}</div>`);
+  if(S._avisos&&S._avisos[0]) gravarLocal(marcaVisto(), S._avisos[0].criado_em);
+  document.querySelectorAll('.sininho .sin-n').forEach(el=>el.style.display='none');
+}
+function abrirAviso(projectId){
+  closeModal(); if(!projectId) return;
+  if(MODE==='client'){ if(S.cProjects&&S.cProjects.some(x=>x.id===projectId)) switchProj(projectId); }
+  else renderProject(projectId);
+}
 function cartaoAvisosCliente(){
-  if(!AVISOS_LIGADOS || avisosAtivos() || lerLocal('aprova_avisos_dispensado')) return '';
+  if(!AVISOS_LIGADOS || aparelhoDaEquipe() || avisosAtivos() || lerLocal('aprova_avisos_dispensado')) return '';
   return `<div class="avisos-card"><div class="av-ic">🔔</div>
     <div class="av-txt"><b>Receba uma notificação quando tiver material para aprovação</b>Avisamos no seu celular assim que houver conteúdo novo.</div>
     <button class="btn btn-accent av-sim" onclick="ativarAvisos(this)">Ativar avisos</button>
@@ -1876,6 +1951,21 @@ async function avisarCliente(projectId){
   if(!AVISOS_LIGADOS) return 0;
   try{ const r=await chamarAvisos({ acao:'publicado', projectId }); return r.enviados||0; }
   catch(e){ console.warn('aviso ao cliente:', e.message); return 0; }
+}
+// equipe atualizou o material de uma tarefa já publicada: avisa o cliente na hora
+async function avisarClienteAgora(projectId, btn){
+  if(btn){ btn.disabled=true; btn.textContent='Avisando…'; }
+  try{
+    const r=await chamarAvisos({ acao:'publicado', projectId });
+    toast(r.enviados ? `🔔 Cliente avisado (${r.enviados} aparelho${r.enviados>1?'s':''})` : 'O cliente ainda não ativou os avisos. Envie o link pelo WhatsApp.');
+  }catch(e){ toast('❌ '+e.message); }
+  if(btn){ btn.disabled=false; btn.textContent='🔔 Avisar cliente'; }
+}
+// um aviso por item reprovado (se o cliente editar o comentário depois, não repete)
+function avisarAjuste(itemId, kind, chave){
+  if(!AVISOS_LIGADOS) return;
+  S._ajustesAvisados=S._ajustesAvisados||{}; if(S._ajustesAvisados[chave]) return; S._ajustesAvisados[chave]=1;
+  chamarAvisos({ acao:'ajuste', token:clientToken, itemId, kind }).catch(e=>console.warn('aviso de ajuste:', e.message));
 }
 function avisarEquipe(projectId){
   if(!AVISOS_LIGADOS) return;
@@ -1897,7 +1987,8 @@ function lerLocal(k){ try{ return localStorage.getItem(k); }catch(e){ return nul
 function gravarLocal(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 
 function prepararAppCliente(c){
-  gravarLocal('aprova_link_cliente', location.href);
+  // guarda o link geral do cliente (sem /p/tarefa): o app sempre abre na tarefa mais recente
+  gravarLocal('aprova_link_cliente', location.origin+location.pathname+'#/c/'+clientToken);
   // o aviso de instalar só aparece no celular/tablet
   if(emApp() || lerLocal('aprova_inst_dispensado') || !matchMedia('(pointer:coarse)').matches) return;
   setTimeout(()=>{
@@ -1910,6 +2001,25 @@ function prepararAppCliente(c){
   }, 2500);
 }
 function dispensarInstalacao(){ gravarLocal('aprova_inst_dispensado','1'); const b=$('instBanner'); if(b) b.remove(); }
+// iPhone: o Safari não deixa site nenhum se instalar sozinho; mostramos o caminho com os ícones iguais aos do iPhone
+const ICONE_COMPARTILHAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7.5 7.5 12 3l4.5 4.5"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>';
+const ICONE_ADICIONAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>';
+function guiaIphone(paraAvisos){
+  const fora = ehNavegadorDeApp()
+    ? `<li><span class="n">0</span><span>Abra este link no <b>Safari</b>: toque em <span class="ios-chip">⋯</span> e escolha <b>Abrir no Safari</b>.</span></li>` : '';
+  openModal(`<div class="modal-head"><h3>${paraAvisos?'🔔 Avisos no iPhone':'📲 Instalar no iPhone'}</h3><button class="icon-btn" onclick="fecharGuiaIphone()">✕</button></div>
+    <div class="modal-body">
+      ${paraAvisos?'<p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:6px">No iPhone, os avisos só funcionam pelo ícone na tela de início. Leva 3 toques:</p>':''}
+      <ol class="guia-ios">${fora}
+        <li><span class="n">1</span><span>Toque em <span class="ios-chip">${ICONE_COMPARTILHAR} Compartilhar</span> na barra do Safari <small style="color:var(--ink-faint)">(se não aparecer, toque em ⋯ primeiro)</small></span></li>
+        <li><span class="n">2</span><span>Role e toque em <span class="ios-chip">${ICONE_ADICIONAR} Adicionar à Tela de Início</span><br><small style="color:var(--ink-faint)">Não é "Favoritos". Se aparecer "Abrir como App Web", deixe ligado.</small></span></li>
+        <li><span class="n">3</span><span>Toque em <span class="ios-chip">Adicionar</span> no canto de cima.</span></li>
+        ${paraAvisos?'<li><span class="n">4</span><span>Abra pelo ícone <b>APROVA</b> na tela do iPhone e toque em <b>Ativar avisos</b>.</span></li>':''}
+      </ol></div>
+    <div class="modal-foot"><button class="btn btn-primary" style="width:100%" onclick="fecharGuiaIphone()">Entendi</button></div>`);
+  if(!ehNavegadorDeApp() && !$('iosSeta')){ const a=document.createElement('div'); a.className='ios-seta'; a.id='iosSeta'; a.textContent='⬇️'; document.body.appendChild(a); }
+}
+const fecharGuiaIphone = () => closeModal();
 async function instalarAppCliente(){
   if(_instPrompt){
     _instPrompt.prompt();
@@ -1917,6 +2027,7 @@ async function instalarAppCliente(){
     if(outcome==='accepted'){ dispensarInstalacao(); toast('Pronto! O app aparece na sua tela inicial.'); }
     return;
   }
+  if(ehIphone()) return guiaIphone(false);
   const fora = ehIphone()
     ? `<li>Toque nos <b>3 pontinhos</b> ou em <b>⋯</b> desta janela e escolha <b>Abrir no Safari</b>.</li>`
     : `<li>Toque nos <b>3 pontinhos ⋮</b> desta janela e escolha <b>Abrir no Chrome</b> (ou <b>Abrir no navegador</b>).</li>`;
@@ -1931,6 +2042,12 @@ async function instalarAppCliente(){
     <div class="modal-foot"><button class="btn btn-ghost" onclick="dispensarInstalacao();closeModal()">Não mostrar mais</button><button class="btn btn-primary" onclick="closeModal()">Entendi</button></div>`);
 }
 
+// app/aba do cliente voltou para a frente depois de um tempo: recarrega para mostrar material novo
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState!=='visible' || MODE!=='client' || !S.cClient) return;
+  if($('modalBg')&&$('modalBg').classList.contains('show')) return;
+  if(Date.now()-(S._cCarregadoEm||0) > 60000) loadClientView();
+});
 async function loadClientView(){
   const c=S.cClient;
   prepararAppCliente(c);
@@ -1941,20 +2058,24 @@ async function loadClientView(){
     return;
   }
   const focus=S.cFocusProject && S.cProjects.find(x=>x.id===S.cFocusProject);
-  S.cActiveProj=focus?focus.id:S.cProjects[0].id;
+  const publicadas=S.cProjects.filter(x=>x.published);
+  S.cActiveProj=focus?focus.id:(publicadas[0]||S.cProjects[0]).id;
+  S._cCarregadoEm=Date.now();
   renderClientView();
 }
 
 function clientHeader(c,p){
   return `<div class="c-header" style="background:${c.color}"><div class="inner">
     <div class="c-brand">${clientAvatar(c,'c-logo')}
-      <div><h1>${esc(c.name)}</h1><p>Aprovação de conteúdo · ${esc(CFG.agencyName)}</p></div></div>
+      <div style="flex:1;min-width:0"><h1>${esc(c.name)}</h1><p>Aprovação de conteúdo · ${esc(CFG.agencyName)}</p></div>
+      ${AVISOS_LIGADOS?sininhoHTML('sin-cliente'):''}</div>
     ${p?`<div class="c-meta"><div>${esc(p.kind)} · <b>${esc(p.period||'')}</b></div><div>${esc(p.title)}</div></div>`:''}
   </div></div>`;
 }
 
 async function renderClientView(){
   const c=S.cClient;
+  if(AVISOS_LIGADOS) setTimeout(atualizarSininho, 300);
   const p=S.cProjects.find(x=>x.id===S.cActiveProj);
   $('app').innerHTML=`${clientHeader(c,p)}
     <div class="c-sub" style="background:${shade(c.color)}"><div class="inner"><span class="lbl">Progresso</span><div class="c-track"><i id="cFill"></i></div><span class="c-count" id="cCount"></span></div></div>
@@ -2169,6 +2290,7 @@ async function confirmReject(itemId){
   // salva o comentário e marca como reprovado
   await sb.from('items').update({note:v}).eq('id',itemId);
   await applyPostStatus(itemId,'rejected');
+  avisarAjuste(itemId,'post',itemId);
   closeModal();
   // atualiza o textarea visível do post, se existir
   const card=$('pc-'+itemId); if(card){ const ta=card.querySelector('textarea'); if(ta) ta.value=v; }
@@ -2286,6 +2408,7 @@ async function saveNote(key,v){
   if(!S.cDecisions[key])return; S.cDecisions[key].notes=v;
   const it=key.replace(/-(copy|creative)$/,''); const tp=key.endsWith('copy')?'copy':'creative';
   await sb.from('decisions').update({notes:v}).eq('item_id',it).eq('kind',tp);
+  if(S.cDecisions[key].status==='rejected' && v.trim()) avisarAjuste(it,tp,key);
 }
 function saveSender(v){ S.cSender=v; /* salvo junto na próxima decisão; atualiza existentes */ syncSender(v); }
 async function syncSender(v){ const keys=Object.keys(S.cDecisions); for(const k of keys){ const it=k.replace(/-(copy|creative)$/,''); const tp=k.endsWith('copy')?'copy':'creative'; await sb.from('decisions').update({sender:v}).eq('item_id',it).eq('kind',tp);} }
