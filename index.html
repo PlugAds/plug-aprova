@@ -10,7 +10,6 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Plug Aprova">
-<link rel="manifest" href="manifest.json">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2031,6 +2030,9 @@ if('serviceWorker' in navigator && location.protocol==='https:') navigator.servi
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _instPrompt = e; });
 const emApp = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const ehIphone = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+// manifest.json só fora do iPhone: o iPhone lê o manifest ao carregar e criaria o ícone no endereço geral (login).
+// Sem ele, o ícone da Tela de Início guarda o endereço exato da página (o link do cliente).
+if(!ehIphone()){ const m=document.createElement('link'); m.rel='manifest'; m.href='manifest.json'; document.head.appendChild(m); }
 const ehSamsung = () => /SamsungBrowser/i.test(navigator.userAgent);
 // navegador embutido do WhatsApp/Instagram/Facebook: não deixa instalar, precisa abrir no navegador
 const ehNavegadorDeApp = () => /WhatsApp|Instagram|FBAN|FBAV|FB_IAB|; wv\)/i.test(navigator.userAgent);
@@ -2042,10 +2044,8 @@ function prepararAppCliente(c){
   gravarLocal('aprova_link_cliente', location.origin+location.pathname+'#/c/'+clientToken);
   // iPhone: o app da Tela de Início não compartilha a memória do Safari e abriria no endereço geral (login).
   // Sem o manifest, o iPhone salva o ícone com o endereço atual: o link do próprio cliente.
-  if(ehIphone()){
-    const m=document.querySelector('link[rel="manifest"]'); if(m) m.remove();
-    if(location.hash.includes('/p/')) history.replaceState(null,'',location.pathname+'#/c/'+clientToken);
-  }
+  // iPhone: deixa o link do cliente no formato ?c= (o iPhone pode descartar a parte depois do #)
+  if(ehIphone()) history.replaceState(null,'',location.pathname+'?c='+clientToken);
   // o aviso de instalar só aparece no celular/tablet
   if(emApp() || lerLocal('aprova_inst_dispensado') || !matchMedia('(pointer:coarse)').matches) return;
   setTimeout(()=>{
