@@ -644,7 +644,7 @@ function nav(view){
    CARREGAMENTO DE DADOS (agência)
    ==================================================================== */
 async function loadAll(){
-  if(AVISOS_LIGADOS && MODE==='agency') setTimeout(atualizarSininho, 800);
+  if(AVISOS_LIGADOS && MODE==='agency'){ setTimeout(atualizarSininho, 800); if(!S._avisosReconfirmados){ S._avisosReconfirmados=1; setTimeout(reconfirmarAvisos, 2000); } }
   const { data:clients, error:e1 } = await sb.from('clients').select('*').order('created_at');
   if(e1){ toast('Erro ao carregar clientes'); console.error(e1); return false; }
   const { data:projects } = await sb.from('projects').select('*').order('created_at');
@@ -1945,6 +1945,17 @@ function abrirAviso(projectId){
   if(MODE==='client'){ if(S.cProjects&&S.cProjects.some(x=>x.id===projectId)) switchProj(projectId); }
   else renderProject(projectId);
 }
+// Aparelho que já ativou os avisos: confirma a inscrição com o servidor a cada abertura
+// (se ela foi apagada no banco, volta sozinha, sem a pessoa precisar tocar em nada)
+async function reconfirmarAvisos(){
+  try{
+    if(!AVISOS_LIGADOS || !avisosAtivos()) return;
+    if(MODE==='client' && aparelhoDaEquipe() && !EQUIPE_TAMBEM_CLIENTE.includes(emailDaEquipe().toLowerCase())) return;
+    const reg=await navigator.serviceWorker.getRegistration(); if(!reg) return;
+    const ins=await reg.pushManager.getSubscription(); if(!ins) return;
+    await chamarAvisos({ acao:'inscrever', inscricao:ins.toJSON(), token:MODE==='client'?clientToken:undefined });
+  }catch(e){ console.warn('reconfirmar avisos:', e.message); }
+}
 function cartaoAvisosCliente(){
   if(!AVISOS_LIGADOS || avisosAtivos() || lerLocal('aprova_avisos_dispensado')) return '';
   // aparelho com login da equipe: só recebe avisos de cliente se pedir, cliente por cliente (ex.: quem também aprova pela Plug)
@@ -2107,7 +2118,7 @@ function clientHeader(c,p){
 
 async function renderClientView(){
   const c=S.cClient;
-  if(AVISOS_LIGADOS) setTimeout(atualizarSininho, 300);
+  if(AVISOS_LIGADOS){ setTimeout(atualizarSininho, 300); if(!S._avisosReconfirmados){ S._avisosReconfirmados=1; setTimeout(reconfirmarAvisos, 1500); } }
   const p=S.cProjects.find(x=>x.id===S.cActiveProj);
   if(!p){
     const vazio = S.cFiltro==='ok'
