@@ -955,7 +955,7 @@ function enviarAoCliente(pid){
     }
     if(p.month_ts){ await sb.from('projects').update({month_ts:null,month_status:null}).eq('id',pid); p.month_ts=null; p.month_status=null; }
     const n=await avisarCliente(pid);
-    toast((n?'📤 Cliente avisado no celular 🔔.':'📤 Tarefa publicada.')+' Escolha a conversa no WhatsApp e envie.');
+    toast((n?'📤 Cliente avisado no celular 🔔.':'📤 Tarefa publicada. '+motivoSemAviso())+' Escolha a conversa no WhatsApp e envie.');
   })();
 }
 function shareWa(name,link){
@@ -1470,7 +1470,7 @@ async function togglePublish(id,cur){
   if(!cur){
     renderProject(id);
     const n=await avisarCliente(id);
-    toast(n?`Publicado! Cliente avisado no celular 🔔`:'Publicado! Envie o link ao cliente.');
+    toast(n?`Publicado! Cliente avisado no celular 🔔`:'Publicado! '+motivoSemAviso()+' Envie o link ao cliente.');
   } else { toast('Despublicado'); renderProject(id); }
 }
 
@@ -1896,7 +1896,11 @@ const AVISOS_LIGADOS = true;
 const pushSuportado = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 function base64ParaBytes(b64){ const p='='.repeat((4-b64.length%4)%4); const r=atob((b64+p).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(r,ch=>ch.charCodeAt(0)); }
 async function chamarAvisos(body){
-  const { data, error } = await sb.functions.invoke('avisos', { body });
+  // Pedido feito como cliente (com o token do link): vai sem a sessão da equipe. Num aparelho em que alguém da equipe
+  // também está logado, o servidor trataria o pedido como "equipe" e o aviso do cliente nunca seria registrado.
+  const opts = { body };
+  if(body.token) opts.headers = { Authorization: 'Bearer ' + CFG.anonKey };
+  const { data, error } = await sb.functions.invoke('avisos', opts);
   if(error){ let msg=error.message; try{ msg=(await error.context.json()).erro||msg; }catch(_){} throw new Error(msg); }
   return data;
 }
@@ -1975,7 +1979,12 @@ async function reconfirmarAvisos(){
     if(!AVISOS_LIGADOS || !avisosAtivos()) return;
     if(MODE==='client' && aparelhoDaEquipe() && !EQUIPE_TAMBEM_CLIENTE.includes(emailDaEquipe().toLowerCase())) return;
     const reg=await navigator.serviceWorker.getRegistration(); if(!reg) return;
-    const ins=await reg.pushManager.getSubscription(); if(!ins) return;
+    let ins=await reg.pushManager.getSubscription();
+    if(!ins){
+      // o aparelho perdeu a inscrição (o Android as vezes apaga depois de dias sem abrir o app): refaz sozinho, sem a pessoa tocar em nada
+      const { chave }=await chamarAvisos({ acao:'chave' });
+      ins=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:base64ParaBytes(chave) });
+    }
     await chamarAvisos({ acao:'inscrever', inscricao:ins.toJSON(), token:MODE==='client'?clientToken:undefined });
   }catch(e){ console.warn('reconfirmar avisos:', e.message); }
 }
@@ -1999,15 +2008,18 @@ function botaoAvisosEquipe(){
 }
 async function avisarCliente(projectId){
   if(!AVISOS_LIGADOS) return 0;
-  try{ const r=await chamarAvisos({ acao:'publicado', projectId }); return r.enviados||0; }
+  S._avisoInscritos=0;
+  try{ const r=await chamarAvisos({ acao:'publicado', projectId }); S._avisoInscritos=r.inscritos||0; return r.enviados||0; }
   catch(e){ console.warn('aviso ao cliente:', e.message); return 0; }
 }
+// Explica à equipe por que o cliente não foi avisado: nunca ativou os avisos, ou ativou e a entrega falhou
+const motivoSemAviso = () => S._avisoInscritos ? 'O aviso não chegou ao celular do cliente (a inscrição pode ter expirado).' : 'O cliente ainda não ativou os avisos neste aparelho.';
 // equipe atualizou o material de uma tarefa já publicada: avisa o cliente na hora
 async function avisarClienteAgora(projectId, btn){
   if(btn){ btn.disabled=true; btn.textContent='Avisando…'; }
   try{
     const r=await chamarAvisos({ acao:'publicado', projectId });
-    toast(r.enviados ? `🔔 Cliente avisado (${r.enviados} aparelho${r.enviados>1?'s':''})` : 'O cliente ainda não ativou os avisos. Envie o link pelo WhatsApp.');
+    toast(r.enviados ? `🔔 Cliente avisado (${r.enviados} aparelho${r.enviados>1?'s':''})` : (r.inscritos ? 'O aviso não chegou ao celular do cliente (a inscrição pode ter expirado). Envie o link pelo WhatsApp.' : 'O cliente ainda não ativou os avisos. Envie o link pelo WhatsApp.'));
   }catch(e){ toast('❌ '+e.message); }
   if(btn){ btn.disabled=false; btn.textContent='🔔 Avisar cliente'; }
 }
