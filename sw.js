@@ -10,8 +10,8 @@ self.addEventListener('push', (e) => {
   try { aviso = { ...aviso, ...e.data.json() }; } catch (_) { /* aviso sem conteúdo */ }
   e.waitUntil(self.registration.showNotification(aviso.titulo, {
     body: aviso.corpo,
-    icon: 'icone-192.png',
-    badge: 'icone-192.png',
+    icon: 'notif-icone-192.png',
+    badge: 'badge-96.png',   // ícone pequeno da barra de status: precisa ser branco com fundo transparente (um ícone cheio vira quadrado branco)
     data: { url: aviso.url }
   }));
 });
